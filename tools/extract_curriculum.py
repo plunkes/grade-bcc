@@ -121,6 +121,8 @@ def main():
         "inicio": "2027",
         "semestresIdeal": 10,
         "creditosEletivosExigidos": 24,   # 360 h-aula / 15 h por credito-aula
+        "chTotalGrade": 4515,             # disciplinas da grade + AAC
+        "extensaoHorasExigidas": 452,     # 10% da carga horaria curricular
         "creditosLivresAproveitaveis": 4, # limite de livres contado como eletivo
         "aacHorasExigidas": 30,
         "creditosParaEstagio": 100,
