@@ -8,6 +8,8 @@ export const CONCLUIDO = new Set(['A', 'DI', 'DS', 'AE']);
 export const CURSANDO = new Set(['MA', 'I', 'IR', 'IT', 'IP', 'IL']);
 
 const STATUS = /\b(A|MA|RN|RA|RF|T|DI|DS|AE|I|IR|IT|IP|P|IL)$/;
+// a nota vem logo antes do status e sempre com uma casa decimal (9.2, 10.0)
+const NOTA = /(\d{1,2}[.,]\d)\s+(?:A|RN|RA|RF|T|DI|DS|AE)$/;
 const SIGLA = /^([A-Z]{3}\d{4}|\d{7})\b/;
 
 /* --------------------------------------------- leitura do histórico (PDF) */
@@ -48,7 +50,7 @@ export async function lerHistorico(arquivo, padroes) {
 export function interpretar(linhas, padroes = { aacHorasExigidas: 30 }) {
   const h = {
     aluno: '', numero: '', curso: '',
-    semestres: [], registros: new Map(), dispensas: [],
+    semestres: [], registros: new Map(), notas: new Map(), dispensas: [],
     totais: { ob: { a: 0, t: 0 }, el: { a: 0, t: 0 }, li: { a: 0, t: 0 } },
     aac: 0, aacExigido: padroes.aacHorasExigidas, ext: 0, chTotal: 0,
   };
@@ -102,6 +104,13 @@ export function interpretar(linhas, padroes = { aacHorasExigidas: 30 }) {
     if (!st) continue;
     const atual = h.registros.get(codigo);
     if (!atual || peso(st[1]) > peso(atual)) h.registros.set(codigo, st[1]);
+
+    const nota = linha.match(NOTA);
+    if (nota) {
+      const valor = parseFloat(nota[1].replace(',', '.'));
+      // guarda a melhor nota: requisito fraco vale a partir de 3,0
+      if (!(h.notas.get(codigo) >= valor)) h.notas.set(codigo, valor);
+    }
     if (semestre) semestre.itens.push({ c: codigo, status: st[1] });
   }
   return h;

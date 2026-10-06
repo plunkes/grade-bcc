@@ -9,6 +9,9 @@ const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
 const ESTAGIO = new Set(G.disciplinasEstagioProjeto);
 
 const LIMITE_CREDITOS = 20; // acima disso o semestre é marcado como puxado
+const MINIMO_CREDITOS = 12; // abaixo disso o semestre não vale, exceto os dois últimos
+const SEMESTRES_LIVRES = 2; // os dois últimos do plano podem ficar abaixo do mínimo
+const NOTA_REQUISITO_FRACO = 3; // requisito fraco só libera com nota >= 3,0
 
 const INSTITUTOS = [
   { id: 'SCC', rotulo: 'SCC', dep: 'scc', teste: (c) => c.startsWith('SCC') },
@@ -31,6 +34,21 @@ export const pesado = (s) => creditosDoSemestre(s) > LIMITE_CREDITOS;
 export const avisoPesado = (s) =>
   `Este semestre tem ${creditosDoSemestre(s)} créditos-aula e vai ser mais puxado. `
   + 'Para um plano mais leve, espalhe as disciplinas.';
+
+/** Só os dois últimos semestres do plano podem ficar abaixo do mínimo. */
+const isentoDoMinimo = (idx) => idx >= S.plano.length - SEMESTRES_LIVRES;
+
+export const leve = (s, idx) => !isentoDoMinimo(idx) && creditosDoSemestre(s) < MINIMO_CREDITOS;
+
+export const avisoLeve = (s) =>
+  `Este semestre tem ${creditosDoSemestre(s)} créditos-aula, abaixo do mínimo de ${MINIMO_CREDITOS}. `
+  + `Só os ${SEMESTRES_LIVRES} últimos semestres do plano podem ficar abaixo disso.`;
+
+/** Melhor nota já obtida na disciplina, ou null se nunca cursada. */
+const notaDe = (codigo) => (S.hist?.notas.has(codigo) ? S.hist.notas.get(codigo) : null);
+
+/** Requisito fraco: vale com a disciplina cumprida ou com nota >= 3,0 nela. */
+const fracoOk = (codigo) => jaTem(codigo) || notaDe(codigo) >= NOTA_REQUISITO_FRACO;
 
 /* ------------------------------------------------------------------ estado */
 
@@ -138,12 +156,32 @@ function avaliar(codigo, idx) {
   });
 
   for (const grupo of d.r) {
-    const forte = grupo[0].k === 'forte';
-    const ok = grupo.some((r) => antes.has(r.c) || (!forte && junto.has(r.c)));
-    if (ok) continue;
+    const tipo = grupo[0].k;
     const nomes = grupo.map((r) => r.c).join(' ou ');
-    if (forte) bloqueios.push(`exige ${nomes} concluída antes`);
-    else avisos.push(`${nomes} não cumprida`);
+
+    if (tipo === 'forte') {
+      if (grupo.some((r) => antes.has(r.c))) continue;
+      bloqueios.push(`exige ${nomes} concluída antes`);
+      continue;
+    }
+
+    if (tipo === 'fraca') {
+      // cumprida ou planejada antes libera; senão vale a nota >= 3,0
+      if (grupo.some((r) => antes.has(r.c) || notaDe(r.c) >= NOTA_REQUISITO_FRACO)) continue;
+      const notas = grupo
+        .map((r) => (notaDe(r.c) === null ? null : `${r.c} ficou com ${notaDe(r.c).toFixed(1).replace('.', ',')}`))
+        .filter(Boolean)
+        .join(', ');
+      bloqueios.push(
+        `requisito fraco ${nomes}: precisa estar cumprida ou com nota ${NOTA_REQUISITO_FRACO},0`
+        + (notas ? ` — ${notas}` : ''),
+      );
+      continue;
+    }
+
+    // indicação de conjunto: mesma coluna já serve, e nunca bloqueia
+    if (grupo.some((r) => antes.has(r.c) || junto.has(r.c))) continue;
+    avisos.push(`${nomes} não cumprida`);
   }
 
   if (ESTAGIO.has(codigo)) {
@@ -162,11 +200,15 @@ function avaliar(codigo, idx) {
   return { bloqueios, avisos };
 }
 
-/** Sem requisito forte pendente considerando só o histórico. */
+/** Sem requisito pendente considerando só o histórico (forte e fraco). */
 function liberada(codigo) {
   const d = GRADE.get(codigo);
   if (!d) return true;
-  return d.r.every((g) => g[0].k !== 'forte' || g.some((r) => jaTem(r.c)));
+  return d.r.every((g) => {
+    if (g[0].k === 'forte') return g.some((r) => jaTem(r.c));
+    if (g[0].k === 'fraca') return g.some((r) => fracoOk(r.c));
+    return true;
+  });
 }
 
 /* ------------------------------------------------------------------- cartões */
@@ -332,14 +374,18 @@ function desenharBoard() {
     const ct = s.itens.reduce((t, c) => t + (GRADE.get(c)?.ct || 0), 0);
     const ch = s.itens.reduce((t, c) => t + (GRADE.get(c)?.ch || 0), 0);
     const puxado = pesado(s);
+    const abaixo = leve(s, idx);
 
     const coluna = document.createElement('section');
-    coluna.className = puxado ? 'coluna coluna-puxada' : 'coluna';
+    coluna.className = `coluna${puxado ? ' coluna-puxada' : ''}${abaixo ? ' coluna-leve' : ''}`;
+    const selo = puxado ? '<span class="tag tag-aviso">puxado</span>'
+      : abaixo ? '<span class="tag tag-bloqueio">abaixo do mínimo</span>' : '';
     coluna.innerHTML = `
       <header class="coluna-cab">
-        <h3 class="coluna-nome">${s.ano} · ${s.sem}º semestre${puxado ? ' <span class="tag tag-aviso">puxado</span>' : ''}</h3>
+        <h3 class="coluna-nome">${s.ano} · ${s.sem}º semestre ${selo}</h3>
         <span class="coluna-cred">${ca} créd.-aula · ${ct} trab. · ${ch} h</span>
         ${puxado ? `<p class="coluna-aviso" role="status">${avisoPesado(s)}</p>` : ''}
+        ${abaixo ? `<p class="coluna-aviso coluna-aviso-erro" role="status">${avisoLeve(s)}</p>` : ''}
       </header>`;
 
     if (S.plano.length > 1) {
@@ -427,13 +473,20 @@ function diagnostico() {
   const obTotal = G.disciplinas.filter((d) => d.t === 'ob').length;
   const cobertas = obTotal - faltaOb.length;
   const sobrecarga = S.plano.filter(pesado);
+  const abaixoMinimo = S.plano.filter((s, i) => leve(s, i));
   const pendenciasPdf = [];
   if (faltaOb.length) pendenciasPdf.push(`${faltaOb.length} disciplina(s) obrigatória(s) fora do plano`);
   if (eletivas.falta) pendenciasPdf.push(`${eletivas.falta} crédito(s)-aula de optativas eletivas`);
   if (h.aac < h.aacExigido) pendenciasPdf.push(`${h.aacExigido - h.aac} h de Atividades Acadêmicas Complementares`);
   if (h.ext < G.extensaoHorasExigidas) pendenciasPdf.push(`${G.extensaoHorasExigidas - h.ext} h de atividades de extensão`);
+  abaixoMinimo.forEach((s) => pendenciasPdf.push(
+    `${s.ano}/${s.sem} com ${creditosDoSemestre(s)} créditos-aula, abaixo do mínimo de ${MINIMO_CREDITOS}`,
+  ));
 
-  return { faltaOb, eletivas, obTotal, cobertas, sobrecarga, pendenciasPdf, pronto: !faltaOb.length && !eletivas.falta };
+  return {
+    faltaOb, eletivas, obTotal, cobertas, sobrecarga, abaixoMinimo, pendenciasPdf,
+    pronto: !faltaOb.length && !eletivas.falta && !abaixoMinimo.length,
+  };
 }
 
 function desenharPlacar() {
@@ -462,15 +515,25 @@ function desenharPlacar() {
   ].join('');
 
   const estado = el('placar-estado');
+  const partes = [];
+  if (d.faltaOb.length) partes.push(`${d.faltaOb.length} obrigatória(s)`);
+  if (d.eletivas.falta) partes.push(`${d.eletivas.falta} créd.-aula eletivo(s)`);
+
   if (d.pronto) {
     estado.className = 'placar-estado pronto';
     estado.innerHTML = `<b>Plano fecha o curso.</b> ${d.pendenciasPdf.length ? 'Pendências de AAC/extensão vão listadas no PDF.' : ''}`;
+  } else if (partes.length) {
+    estado.className = 'placar-estado';
+    estado.innerHTML = `Falta encaixar <b>${partes.join(' e ')}</b>.`;
   } else {
     estado.className = 'placar-estado';
-    const partes = [];
-    if (d.faltaOb.length) partes.push(`${d.faltaOb.length} obrigatória(s)`);
-    if (d.eletivas.falta) partes.push(`${d.eletivas.falta} créd.-aula eletivo(s)`);
-    estado.innerHTML = `Falta encaixar <b>${partes.join(' e ')}</b>.`;
+    estado.innerHTML = '<b>Disciplinas cobertas.</b> Ajuste a carga dos semestres para liberar o PDF.';
+  }
+
+  if (d.abaixoMinimo.length) {
+    const quais = d.abaixoMinimo.map((s) => `${s.ano}/${s.sem}`).join(', ');
+    estado.innerHTML += ` <span class="placar-erro">${quais} ${d.abaixoMinimo.length === 1 ? 'fica' : 'ficam'}`
+      + ` abaixo de ${MINIMO_CREDITOS} créditos-aula: só os ${SEMESTRES_LIVRES} últimos semestres podem.</span>`;
   }
   if (d.sobrecarga.length) {
     const quais = d.sobrecarga.map((s) => `${s.ano}/${s.sem}`).join(', ');
