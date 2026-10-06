@@ -21,7 +21,8 @@ await cmd('Network.setCacheDisabled', { cacheDisabled: true });
 await cmd('Page.enable');
 await cmd('Page.reload', { ignoreCache: true });
 await new Promise((r) => setTimeout(r, 1200));
-await cmd('Emulation.setDeviceMetricsOverride', { width: 1480, height: 940, deviceScaleFactor: 1, mobile: false });
+if (process.env.TEMA) await cmd('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: process.env.TEMA }] });
+await cmd('Emulation.setDeviceMetricsOverride', { width: +(process.env.LARGURA || 1480), height: +(process.env.ALTURA || 940), deviceScaleFactor: 1, mobile: false });
 await new Promise((r) => setTimeout(r, 2200));
 
 const carregar = `(async () => {
