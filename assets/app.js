@@ -390,6 +390,24 @@ function desenharBoard() {
     coluna.appendChild(lista);
     board.appendChild(coluna);
   });
+
+  const mais = document.createElement('button');
+  mais.className = 'coluna coluna-mais';
+  mais.type = 'button';
+  mais.innerHTML = '<span>+</span> Planejar mais um semestre';
+  mais.addEventListener('click', () => {
+    adicionarSemestre();
+    board.scrollLeft = board.scrollWidth;
+  });
+  board.appendChild(mais);
+}
+
+function adicionarSemestre() {
+  const ultimo = S.plano[S.plano.length - 1]
+    || { ano: new Date().getFullYear(), sem: new Date().getMonth() < 6 ? 1 : 2 };
+  const prox = ultimo.sem === 1 ? { ano: ultimo.ano, sem: 2 } : { ano: ultimo.ano + 1, sem: 1 };
+  S.plano.push({ ...prox, itens: [] });
+  desenhar();
 }
 
 function medidor({ nome, valor, atual, alvo, nota, ok }) {
@@ -537,12 +555,6 @@ function ligarControles() {
 
   el('chk-paridade').addEventListener('change', (ev) => {
     S.paridade = ev.target.checked;
-    desenhar();
-  });
-  el('btn-add-sem').addEventListener('click', () => {
-    const ultimo = S.plano[S.plano.length - 1];
-    const prox = ultimo.sem === 1 ? { ano: ultimo.ano, sem: 2 } : { ano: ultimo.ano + 1, sem: 1 };
-    S.plano.push({ ...prox, itens: [] });
     desenhar();
   });
   el('btn-recomecar').addEventListener('click', () => location.reload());
