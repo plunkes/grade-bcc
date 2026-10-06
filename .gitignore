@@ -1,0 +1,7 @@
+# Históricos escolares contêm dados pessoais — nunca versionar
+document.pdf
+*historico*.pdf
+*Historico*.pdf
+
+# saida local
+*.log
