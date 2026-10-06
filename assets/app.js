@@ -8,7 +8,7 @@ const G = window.CURRICULO;
 const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
 const ESTAGIO = new Set(G.disciplinasEstagioProjeto);
 
-const LIMITE_CREDITOS = 32; // acima disso o placar pede conferência
+const LIMITE_CREDITOS = 20; // acima disso o semestre é marcado como puxado
 
 const INSTITUTOS = [
   { id: 'SCC', rotulo: 'SCC', dep: 'scc', teste: (c) => c.startsWith('SCC') },
@@ -21,6 +21,16 @@ const INSTITUTOS = [
 const dep = (codigo) => INSTITUTOS.find((i) => i.teste(codigo)).dep;
 const instituto = (codigo) => INSTITUTOS.find((i) => i.teste(codigo)).id;
 const el = (id) => document.getElementById(id);
+
+/** Créditos-aula de um semestre do plano. */
+const creditosDoSemestre = (s) => s.itens.reduce((t, c) => t + (GRADE.get(c)?.ca || 0), 0);
+
+/** Semestre puxado: passa do limite de créditos-aula. */
+export const pesado = (s) => creditosDoSemestre(s) > LIMITE_CREDITOS;
+
+export const avisoPesado = (s) =>
+  `Este semestre tem ${creditosDoSemestre(s)} créditos-aula e vai ser mais puxado. `
+  + 'Para um plano mais leve, espalhe as disciplinas.';
 
 /* ------------------------------------------------------------------ estado */
 
@@ -318,16 +328,18 @@ function desenharBoard() {
   board.innerHTML = '';
 
   S.plano.forEach((s, idx) => {
-    const ca = s.itens.reduce((t, c) => t + (GRADE.get(c)?.ca || 0), 0);
+    const ca = creditosDoSemestre(s);
     const ct = s.itens.reduce((t, c) => t + (GRADE.get(c)?.ct || 0), 0);
     const ch = s.itens.reduce((t, c) => t + (GRADE.get(c)?.ch || 0), 0);
+    const puxado = pesado(s);
 
     const coluna = document.createElement('section');
-    coluna.className = 'coluna';
+    coluna.className = puxado ? 'coluna coluna-puxada' : 'coluna';
     coluna.innerHTML = `
       <header class="coluna-cab">
-        <h3 class="coluna-nome">${s.ano} · ${s.sem}º semestre</h3>
+        <h3 class="coluna-nome">${s.ano} · ${s.sem}º semestre${puxado ? ' <span class="tag tag-aviso">puxado</span>' : ''}</h3>
         <span class="coluna-cred">${ca} créd.-aula · ${ct} trab. · ${ch} h</span>
+        ${puxado ? `<p class="coluna-aviso" role="status">${avisoPesado(s)}</p>` : ''}
       </header>`;
 
     if (S.plano.length > 1) {
@@ -396,7 +408,7 @@ function diagnostico() {
   const h = S.hist;
   const obTotal = G.disciplinas.filter((d) => d.t === 'ob').length;
   const cobertas = obTotal - faltaOb.length;
-  const sobrecarga = S.plano.filter((s) => s.itens.reduce((t, c) => t + (GRADE.get(c)?.ca || 0), 0) > LIMITE_CREDITOS);
+  const sobrecarga = S.plano.filter(pesado);
   const pendenciasPdf = [];
   if (faltaOb.length) pendenciasPdf.push(`${faltaOb.length} disciplina(s) obrigatória(s) fora do plano`);
   if (eletivas.falta) pendenciasPdf.push(`${eletivas.falta} crédito(s)-aula de optativas eletivas`);
@@ -443,8 +455,9 @@ function desenharPlacar() {
     estado.innerHTML = `Falta encaixar <b>${partes.join(' e ')}</b>.`;
   }
   if (d.sobrecarga.length) {
-    estado.innerHTML += ` <span title="limite varia por unidade">${d.sobrecarga
-      .map((s) => `${s.ano}/${s.sem}`).join(', ')} passa de ${LIMITE_CREDITOS} créd.-aula.</span>`;
+    const quais = d.sobrecarga.map((s) => `${s.ano}/${s.sem}`).join(', ');
+    estado.innerHTML += ` <span class="placar-puxado">${quais} ${d.sobrecarga.length === 1 ? 'passa' : 'passam'}`
+      + ` de ${LIMITE_CREDITOS} créditos-aula: semestre${d.sobrecarga.length === 1 ? '' : 's'} mais puxado${d.sobrecarga.length === 1 ? '' : 's'}.</span>`;
   }
 
   el('btn-pdf').hidden = !d.pronto;
@@ -539,4 +552,4 @@ ligarEntrada();
 ligarControles();
 
 /* assets/pdf.js consome este estado para gerar o plano em PDF. */
-export { diagnostico, S, GRADE, G };
+export { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre };

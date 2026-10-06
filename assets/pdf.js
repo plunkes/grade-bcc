@@ -1,11 +1,12 @@
 /* Exportação do plano em PDF, feita no próprio navegador com jsPDF.
    Lista semestre a semestre e fecha com o que ainda fica pendente. */
 
-import { diagnostico, S, GRADE, G } from './app.js';
+import { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre } from './app.js';
 
 const MARGEM = 42;
 const CINZA = [110, 123, 138];
 const TINTA = [16, 23, 32];
+const ALERTA = [142, 91, 6];
 
 const hoje = () => new Date().toLocaleDateString('pt-BR');
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
@@ -37,17 +38,20 @@ function tabelaSemestre(doc, y, semestre) {
     { content: `${soma('ch')} h`, styles: { fontStyle: 'bold' } },
   ]);
 
+  const puxado = creditosDoSemestre(semestre) > LIMITE_CREDITOS;
+  const titulo = `${semestre.ano} · ${semestre.sem}º semestre${puxado ? '  —  SEMESTRE PUXADO' : ''}`;
+
   doc.autoTable({
     startY: y,
     head: [[
-      { content: `${semestre.ano} · ${semestre.sem}º semestre`, colSpan: 2 },
+      { content: titulo, colSpan: 2 },
       'Créd. aula', 'Créd. trab.', 'CH',
     ]],
     body: corpo,
     theme: 'grid',
     margin: { left: MARGEM, right: MARGEM },
     styles: { font: 'helvetica', fontSize: 9, cellPadding: 4, textColor: TINTA, lineColor: [214, 221, 229] },
-    headStyles: { fillColor: [35, 69, 127], textColor: 255, fontStyle: 'bold' },
+    headStyles: { fillColor: puxado ? ALERTA : [35, 69, 127], textColor: 255, fontStyle: 'bold' },
     columnStyles: {
       0: { cellWidth: 62, font: 'courier' },
       2: { cellWidth: 56, halign: 'right' },
@@ -55,7 +59,15 @@ function tabelaSemestre(doc, y, semestre) {
       4: { cellWidth: 46, halign: 'right' },
     },
   });
-  return doc.lastAutoTable.finalY + 16;
+  let fim = doc.lastAutoTable.finalY;
+  if (puxado) {
+    doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...ALERTA);
+    const texto = `Este semestre tem ${creditosDoSemestre(semestre)} créditos-aula e vai ser mais puxado. `
+      + 'Para um plano mais leve, espalhe as disciplinas.';
+    doc.text(doc.splitTextToSize(texto, doc.internal.pageSize.getWidth() - MARGEM * 2), MARGEM, fim + 12);
+    fim += 12;
+  }
+  return fim + 16;
 }
 
 function tabelaSituacao(doc, y, d, h) {
@@ -137,6 +149,18 @@ export function gerarPdf() {
   doc.text('Fechamento do curso', MARGEM, y + 4);
   y = tabelaSituacao(doc, y + 14, d, h);
   y = pendencias(doc, y, d);
+
+  const puxados = cheios.filter((s) => creditosDoSemestre(s) > LIMITE_CREDITOS);
+  if (puxados.length) {
+    doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...ALERTA);
+    const quais = puxados.map((s) => `${s.ano}/${s.sem}`).join(', ');
+    doc.text(
+      `Semestre${puxados.length === 1 ? '' : 's'} puxado${puxados.length === 1 ? '' : 's'}: ${quais} `
+      + `(acima de ${LIMITE_CREDITOS} créditos-aula).`,
+      MARGEM, y + 6,
+    );
+    y += 18;
+  }
 
   const planejadas = cheios.reduce((t, s) => t + s.itens.length, 0);
   doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...CINZA);
