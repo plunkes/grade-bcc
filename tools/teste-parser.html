@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>teste parser</title><pre id="out">…</pre>
+<script src="../assets/curriculum.js"></script>
+<script type="module">
+const out = document.getElementById('out');
+try {
+  const { lerHistorico } = await import('../assets/historico.js');
+  const r = await fetch('../document.pdf');
+  const f = new File([await r.blob()], 'h.pdf', { type: 'application/pdf' });
+  const h = await lerHistorico(f, window.CURRICULO);
+  out.textContent = JSON.stringify({
+    aluno: h.aluno, numero: h.numero, curso: h.curso,
+    semestres: h.semestres.map(s => `${s.ano}/${s.sem}:${s.itens.length}`),
+    totais: h.totais, aac: h.aac, aacExigido: h.aacExigido, ext: h.ext, chTotal: h.chTotal,
+    dispensas: h.dispensas, nRegistros: h.registros.size,
+    registros: Object.fromEntries(h.registros),
+  }, null, 1);
+} catch (e) { out.textContent = 'ERRO: ' + (e && e.stack || e); }
+</script>
