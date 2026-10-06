@@ -539,4 +539,4 @@ ligarEntrada();
 ligarControles();
 
 /* assets/pdf.js consome este estado para gerar o plano em PDF. */
-export { diagnostico, S, GRADE, G, contaEletivas, pendentes };
+export { diagnostico, S, GRADE, G };
