@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>contínuo — planejador de curso BCC/ICMC</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/curriculum.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca">
+    <span class="marca-nome">contínuo</span>
+    <span class="marca-sub" id="marca-curso">Bacharelado em Ciências de Computação · ICMC/USP</span>
+  </div>
+  <div class="barra-acoes">
+    <label class="alternar" hidden id="box-paridade">
+      <input type="checkbox" id="chk-paridade" checked>
+      <span>Só disciplinas do semestre certo</span>
+    </label>
+    <button class="btn btn-fantasma" id="btn-recomecar" hidden>Começar de novo</button>
+    <button class="btn btn-primario" id="btn-pdf" hidden>Baixar plano em PDF</button>
+  </div>
+</header>
+
+<!-- ENTRADA ---------------------------------------------------------------- -->
+<main class="entrada" id="tela-entrada">
+  <div class="entrada-texto">
+    <h1>Monte os semestres que faltam<br>para você se formar.</h1>
+    <p class="lede">
+      Carregue seu histórico escolar do Júpiter em PDF. O contínuo compara com a grade
+      curricular do BCC, mostra o que falta e deixa você arrastar as disciplinas para os
+      próximos semestres até fechar o curso.
+    </p>
+    <ol class="passos">
+      <li><span><b>Júpiter → Histórico Escolar</b> → emitir o PDF completo</span></li>
+      <li><span>Soltar o arquivo aqui</span></li>
+      <li><span>Arrastar disciplinas · baixar o plano</span></li>
+    </ol>
+  </div>
+
+  <div class="zona" id="zona">
+    <input type="file" id="arquivo" accept="application/pdf" hidden>
+    <div class="zona-corpo">
+      <span class="zona-icone" aria-hidden="true">PDF</span>
+      <p class="zona-chamada">Arraste o histórico ou <button class="link" id="btn-escolher">escolha o arquivo</button></p>
+      <p class="zona-nota">Fica tudo no seu navegador: nada é enviado, nada é salvo.</p>
+      <p class="zona-erro" id="zona-erro" role="alert" hidden></p>
+    </div>
+  </div>
+</main>
+
+<!-- PLANEJADOR ------------------------------------------------------------- -->
+<div class="app" id="tela-app" hidden>
+
+  <aside class="rail">
+    <div class="rail-topo">
+      <h2 class="rail-titulo">A cursar</h2>
+      <p class="rail-sub" id="rail-resumo"></p>
+      <input type="search" id="busca" class="busca" placeholder="Buscar sigla ou nome" autocomplete="off">
+      <div class="filtros" id="filtros" role="group" aria-label="Filtrar por instituto"></div>
+    </div>
+    <div class="rail-listas" id="listas"></div>
+  </aside>
+
+  <section class="board" id="board" aria-label="Semestres planejados"></section>
+
+  <footer class="placar" id="placar">
+    <div class="medidores" id="medidores"></div>
+    <div class="placar-fim">
+      <p class="placar-estado" id="placar-estado"></p>
+      <button class="btn btn-fantasma btn-pequeno" id="btn-add-sem">+ semestre</button>
+    </div>
+  </footer>
+</div>
+
+<div class="carregando" id="carregando" hidden><span></span>Lendo histórico…</div>
+
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>
