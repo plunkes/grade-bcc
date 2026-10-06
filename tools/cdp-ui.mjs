@@ -35,7 +35,7 @@ const carregar = `(async () => {
   for (let i = 0; i < 100 && document.getElementById('tela-app').hidden; i++) await new Promise(r => setTimeout(r, 150));
   return document.getElementById('tela-app').hidden ? 'FALHOU: ' + document.getElementById('zona-erro').textContent : 'ok';
 })()`;
-const r1 = await cmd('Runtime.evaluate', { expression: carregar, awaitPromise: true, returnByValue: true, timeout: 60000 });
+const r1 = process.env.SEM_CARGA ? { result: { result: { value: 'pulado' } } } : await cmd('Runtime.evaluate', { expression: carregar, awaitPromise: true, returnByValue: true, timeout: 60000 });
 console.log('carga:', JSON.stringify(r1.result?.result?.value ?? r1.result));
 
 if (extraFile) {

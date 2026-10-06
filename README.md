@@ -1,12 +1,17 @@
 # contínuo
 
+**Site: <https://plunkes.github.io/continuo-bcc/>**
+
 Planejador dos semestres que faltam no **Bacharelado em Ciências de Computação (ICMC/USP)**.
 Você carrega seu histórico do Júpiter, ele mostra o que falta e você monta o plano arrastando
 disciplinas. No fim, baixa o plano em PDF.
 
 ## Como rodar
 
-Precisa só de Python (já vem no Linux e no macOS). Na pasta do projeto:
+Use o site acima, ou rode local. Nos dois casos o histórico é lido dentro do navegador: o
+PDF não é enviado para lugar nenhum (a página do GitHub Pages serve só arquivos estáticos).
+
+Para rodar local, precisa só de Python (já vem no Linux e no macOS). Na pasta do projeto:
 
 ```bash
 python3 -m http.server 8000
@@ -31,6 +36,7 @@ Regras aplicadas ao arrastar:
 - Disciplina de período ideal ímpar só entra em 1º semestre (e par em 2º). Desligue em
   "Só disciplinas do semestre certo" para planejar fora da paridade.
 - Estágio e projetos de graduação exigem 100 créditos-aula aprovados antes.
+- Semestre acima de 20 créditos-aula é marcado como **puxado**, na tela e no PDF. É só aviso: o encaixe continua valendo.
 - AAC e extensão são lidos do histórico: entram no placar e, se faltarem, saem listados no PDF.
 
 ## Privacidade
@@ -38,6 +44,11 @@ Regras aplicadas ao arrastar:
 Tudo roda no seu navegador: o PDF é lido localmente, nada é enviado e nada é salvo (sem
 `localStorage`, sem cookies, sem servidor remoto). Recarregar a página apaga o plano.
 O histórico de exemplo (`document.pdf`) fica fora do Git.
+
+## Publicar
+
+O site sai do branch `main` pelo GitHub Pages. Para atualizar, basta `git push` — o Pages
+reconstrói sozinho.
 
 ## Atualizar a grade curricular
 
