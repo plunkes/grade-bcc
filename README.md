@@ -6,6 +6,9 @@ Planejador dos semestres que faltam no **Bacharelado em Ciências de Computaçã
 Você carrega seu histórico do Júpiter, ele mostra o que falta e você monta o plano arrastando
 disciplinas. No fim, baixa o plano em PDF.
 
+> Mais recursos no branch [`extras`](https://github.com/plunkes/continuo-bcc/tree/extras): ênfases com sugestão de semestres e
+> tabela de equivalências do ICMC.
+
 ## Como rodar
 
 Use o site acima, ou rode local. Nos dois casos o histórico é lido dentro do navegador: o
