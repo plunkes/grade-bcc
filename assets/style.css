@@ -347,6 +347,9 @@ button { font: inherit; color: inherit; }
 .enfase-item[data-estado="fora"] { opacity: .55; }
 .enfase-sigla { font: 600 10.5px var(--mono); color: var(--ink-2); }
 .enfase-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.enfase-nome small { display: block; font: 400 10px var(--mono); color: var(--ink-3); }
+.otimo .enfase-resumo { margin: 8px 0; }
+.otimo > .enfase-regra { margin-top: 10px; }
 .enfase-fim { margin: 8px 0 0; font-size: 11px; color: var(--ink-3); }
 .enfase-fim b { color: var(--ok); }
 
@@ -359,6 +362,7 @@ button { font: inherit; color: inherit; }
   border-radius: var(--r);
 }
 .enfase-resumo { margin: 0; font-size: 11.5px; color: var(--ink-2); }
+.enfase-resumo b { color: var(--ink); }
 .enfase-botoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .enfase-botoes:empty { display: none; }
 
