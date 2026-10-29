@@ -317,6 +317,8 @@ button { font: inherit; color: inherit; }
   text-transform: uppercase;
   color: var(--ink-3);
 }
+#enfases .chip-limpar { color: var(--ink-3); border-style: dashed; }
+#enfases .chip-limpar[hidden] { display: none; }
 #enfases { margin-top: 6px; }
 #enfases .chip[data-completa]:not([data-completa=""])::after { content: " ✓"; color: var(--ok); }
 #enfases .chip[data-completa="prevista"]::after { content: " ◐"; }
@@ -600,6 +602,7 @@ button { font: inherit; color: inherit; }
   transition: color .12s, border-color .12s, background .12s;
 }
 .coluna-mais:hover { color: var(--brand); border-color: var(--brand); background: var(--surface); }
+.coluna-menos:hover { color: var(--block); border-color: var(--block); background: var(--block-bg); }
 .coluna-mais span {
   display: grid;
   place-items: center;

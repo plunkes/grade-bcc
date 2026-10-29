@@ -52,7 +52,7 @@ A combinação é otimizada:
 **Aplicar ao plano** encaixa as obrigatórias pendentes, as disciplinas escolhidas e, se ainda
 faltarem créditos eletivos, mais optativas. A distribuição usa o menor número de semestres em
 que tudo cabe e **equilibra a carga** entre eles (respeitando requisitos, paridade, estágio e o
-limite de 20 créditos-aula), sem mexer no que você já tinha posto. **Desfazer** volta o plano.
+limite de 20 créditos-aula), sem mexer no que você já tinha posto. **Desfazer** volta o plano. **Limpar** (ao lado dos chips ou no painel) tira todas as ênfases da otimização sem mexer no plano.
 Disciplinas citadas na ênfase mas fora da grade aparecem marcadas e nunca são sugeridas.
 
 Ênfase completa ganha **✓** no chip (concluída pelo histórico) ou **◐** (completa contando o
@@ -64,7 +64,9 @@ Regras aplicadas ao arrastar:
 - **Requisito fraco** só libera com a disciplina cumprida (ou planejada antes) ou com **nota ≥ 3,0** nela; sem isso, bloqueia. **Indicação de conjunto** só avisa.
 - Disciplina de período ideal ímpar só entra em 1º semestre (e par em 2º). Desligue em
   "Só disciplinas do semestre certo" para planejar fora da paridade.
-- Estágio e projetos de graduação exigem 100 créditos-aula aprovados antes.
+- Estágio e projetos (graduação, intercâmbio, empreendedor) exigem 100 créditos-aula aprovados antes,
+  mas valem em qualquer semestre, sem a regra de paridade.
+- **+** no fim do quadro planeja mais um semestre; **−** remove o último (as disciplinas dele voltam para a lista).
 - Semestre acima de 20 créditos-aula é marcado como **puxado**, na tela e no PDF. É só aviso: o encaixe continua valendo.
 - Semestre com menos de **12 créditos-aula** invalida o plano e segura o PDF. Só os **2 últimos** semestres do plano podem ficar abaixo disso.
 - AAC e extensão são lidos do histórico: entram no placar e, se faltarem, saem listados no PDF.
