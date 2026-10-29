@@ -8,6 +8,7 @@ import html
 import json
 import os
 import re
+import unicodedata
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(BASE, "Grade Curricular.html")
@@ -18,6 +19,9 @@ TIPOS = {
     "Disciplinas Optativas Eletivas": "el",
     "Disciplinas Optativas Livres": "li",
 }
+# Sigla citada numa ênfase que saiu da grade, com a substituta de mesmo nome.
+EQUIVALENTES = {"SSC0721": "SSC0959"}  # Teste e Inspeção de Software
+
 KINDS = {
     "requisito fraco": "fraca",
     "indicação de conjunto": "conjunto",
@@ -37,6 +41,55 @@ def celulas(linha):
 
 def num(valor):
     return int(valor) if re.fullmatch(r"\d+", valor or "") else 0
+
+
+def enfases(raw):
+    """Certificados de estudos especiais (ênfases) do texto da grade.
+
+    Cada ênfase tem grupos; cada grupo tem um mínimo de disciplinas e itens.
+    Um item é uma lista de siglas alternativas ("SSC0128 ... ou SEP0172 ...").
+    """
+    ini = raw.find("certificados de estudos especiais")
+    fim = raw.find("Além dos créditos", ini)
+    if ini < 0 or fim < 0:
+        return []
+    lista = []
+    atual = None
+    for bloco in re.findall(r"<p\b[^>]*>(.*?)</p>", raw[ini:fim], re.S | re.I):
+        titulo = re.search(r"<strong>(.*?)</strong>", bloco, re.S | re.I)
+        if titulo:
+            nome = re.sub(r"^Ênfase\s+|\s+para os cursos do ICMC$", "", texto(titulo.group(1)))
+            ascii_ = unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode()
+            atual = {"id": re.sub(r"[^a-z]+", "-", ascii_.lower()).strip("-"), "nome": nome, "grupos": []}
+            lista.append(atual)
+        if atual is None:
+            continue
+        for linha in re.split(r"<br\s*/?>", bloco, flags=re.I):
+            t = texto(linha)
+            grupo = re.match(r"^Grupo (\d+):", t)
+            if grupo:
+                atual["grupos"].append({"nome": f"Grupo {grupo.group(1)}", "minimo": 0, "itens": []})
+                t = t[grupo.end():].strip()
+            minimo = re.search(r"mínimo de (\d+) disciplinas", t)
+            if minimo:
+                atual["grupos"][-1]["minimo"] = int(minimo.group(1))
+                continue
+            for qtd, g in re.findall(r"(\d+) disciplinas do Grupo (\d+)", t):
+                atual["grupos"][int(g) - 1]["minimo"] = int(qtd)
+            if not re.match(r"^[A-Z]{3}\d{4}\b", t):
+                continue
+            if not atual["grupos"]:
+                atual["grupos"].append({"nome": None, "minimo": 0, "itens": []})
+            alternativas = []
+            for parte in re.split(r"\s+ou\s+(?=[A-Z]{3}\d{4})", t):
+                m = re.match(r"^([A-Z]{3}\d{4})\s*-?\s*(.*)$", parte)
+                alternativas.append({"c": m.group(1), "n": m.group(2).strip()})
+            for a in list(alternativas):
+                eq = EQUIVALENTES.get(a["c"])
+                if eq and all(x["c"] != eq for x in alternativas):
+                    alternativas.append({"c": eq, "n": a["n"]})
+            atual["grupos"][-1]["itens"].append(alternativas)
+    return [e for e in lista if any(g["itens"] for g in e["grupos"])]
 
 
 def main():
@@ -131,6 +184,7 @@ def main():
             "SCC0300", "SCC0302",
         ],
         "disciplinas": [disciplinas[c] for c in ordem],
+        "enfases": enfases(raw),
     }
 
     with open(OUT, "w", encoding="utf-8") as fh:
@@ -139,7 +193,8 @@ def main():
         json.dump(dados, fh, ensure_ascii=False, separators=(",", ":"))
         fh.write(";\n")
 
-    print(f"{len(ordem)} disciplinas ({len(obrig)} obrigatorias) -> {OUT}")
+    print(f"{len(ordem)} disciplinas ({len(obrig)} obrigatorias), "
+          f"{len(dados['enfases'])} enfases -> {OUT}")
 
 
 if __name__ == "__main__":

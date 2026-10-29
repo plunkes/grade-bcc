@@ -7,6 +7,20 @@ import { lerHistorico, CONCLUIDO, CURSANDO } from './historico.js';
 const G = window.CURRICULO;
 const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
 const ESTAGIO = new Set(G.disciplinasEstagioProjeto);
+const ENFASES = G.enfases || [];
+
+/* rótulo curto do chip de cada ênfase; o nome completo vai no painel */
+const ENFASE_CURTA = {
+  'desenvolvimento-web': 'web',
+  'engenharia-de-dados': 'eng. dados',
+  'engenharia-de-software': 'eng. software',
+  'inteligencia-artificial': 'IA',
+  robotica: 'robótica',
+  'sistemas-computacionais-avancados-e-de-alto-desempenho': 'alto desempenho',
+  'sistemas-embarcados': 'embarcados',
+  'tecnicas-de-programacao-avancada': 'programação',
+  'ciencia-de-dados': 'ciência de dados',
+};
 
 const LIMITE_CREDITOS = 20; // acima disso o semestre é marcado como puxado
 const MINIMO_CREDITOS = 12; // abaixo disso o semestre não vale, exceto os dois últimos
@@ -62,6 +76,8 @@ const S = {
   soLiberadas: false,
   paridade: true,
   aproveitarLivres: true,
+  enfase: null,     // id da ênfase escolhida
+  planoAntes: null, // cópia do plano antes de aplicar a sugestão (desfazer)
 };
 
 /* ------------------------------------------------------- derivação de estado */
@@ -130,6 +146,57 @@ function contaEletivas() {
     exigido: G.creditosEletivosExigidos,
     falta: Math.max(0, G.creditosEletivosExigidos - total),
   };
+}
+
+/* ---------------------------------------------------------------- ênfases */
+
+const enfaseAtual = () => ENFASES.find((e) => e.id === S.enfase) || null;
+
+/** Siglas da ênfase escolhida (todas as alternativas). */
+function siglasDaEnfase() {
+  const e = enfaseAtual();
+  return new Set(e ? e.grupos.flatMap((g) => g.itens.flat().map((a) => a.c)) : []);
+}
+
+/**
+ * Situação de um item da ênfase (lista de siglas alternativas):
+ * feita (histórico), plano (já num semestre), falta (na grade) ou fora (fora da grade).
+ */
+function situacaoItem(alternativas) {
+  const dentro = planejadas();
+  const feita = alternativas.find((a) => jaTem(a.c));
+  if (feita) return { c: feita.c, estado: 'feita' };
+  const plano = alternativas.find((a) => dentro.has(a.c));
+  if (plano) return { c: plano.c, estado: 'plano' };
+  const naGrade = alternativas.find((a) => GRADE.has(a.c));
+  if (naGrade) return { c: naGrade.c, estado: 'falta' };
+  return { c: alternativas[0].c, estado: 'fora' };
+}
+
+/** Progresso por grupo: quantos itens já contam (feitos ou no plano). */
+function progressoEnfase(e) {
+  const grupos = e.grupos.map((g) => {
+    const itens = g.itens.map((alts) => ({ alts, ...situacaoItem(alts) }));
+    const contam = itens.filter((i) => i.estado === 'feita' || i.estado === 'plano').length;
+    return { ...g, itens, contam, falta: Math.max(0, g.minimo - contam) };
+  });
+  const concluida = grupos.every((g) => g.itens.filter((i) => i.estado === 'feita').length >= g.minimo);
+  return { grupos, completa: grupos.every((g) => !g.falta), concluida };
+}
+
+/**
+ * Ênfases cujo mínimo já fecha: "concluída" só com o histórico,
+ * "prevista" quando depende de disciplinas do plano.
+ */
+function enfasesCompletas() {
+  return ENFASES.map((e) => ({ e, ...progressoEnfase(e) }))
+    .filter((x) => x.completa)
+    .map(({ e, grupos, concluida }) => ({
+      id: e.id,
+      nome: e.nome,
+      situacao: concluida ? 'concluida' : 'prevista',
+      disciplinas: grupos.flatMap((g) => g.itens.filter((i) => i.estado !== 'falta' && i.estado !== 'fora').map((i) => i.c)),
+    }));
 }
 
 /* ------------------------------------------------------------- requisitos */
@@ -211,6 +278,117 @@ function liberada(codigo) {
   });
 }
 
+/* --------------------------------------------------------------- sugestão */
+
+const SEMESTRES_EXTRAS = 8; // quantos semestres a sugestão pode criar além do plano
+
+const copiaPlano = (plano) => plano.map((s) => ({ ...s, itens: [...s.itens] }));
+
+/** Requisitos fortes e fracos que o histórico ou as obrigatórias ainda vão cobrir. */
+function alcancavel(codigo) {
+  const d = GRADE.get(codigo);
+  if (!d) return false;
+  const vira = (r) => jaTem(r.c) || GRADE.get(r.c)?.t === 'ob';
+  return d.r.every((g) => {
+    if (g[0].k === 'forte') return g.some(vira);
+    if (g[0].k === 'fraca') return g.some((r) => vira(r) || fracoOk(r.c));
+    return true;
+  });
+}
+
+const porPeriodo = (a, b) => (GRADE.get(a).p - GRADE.get(b).p) || a.localeCompare(b);
+
+/** O que a sugestão quer encaixar: obrigatórias, mínimo da ênfase e eletivas. */
+function escolherParaEnfase(e) {
+  const obrigatorias = pendentes('ob').map((d) => d.c);
+  const daEnfase = [];
+  const reserva = [];
+  for (const g of progressoEnfase(e).grupos) {
+    const livres = g.itens
+      .filter((i) => i.estado === 'falta')
+      .map((i) => i.alts.map((a) => a.c).find((c) => GRADE.has(c) && alcancavel(c)))
+      .filter(Boolean)
+      .sort(porPeriodo);
+    daEnfase.push(...livres.slice(0, g.falta));
+    reserva.push(...livres.slice(g.falta));
+  }
+
+  // eletivas que ainda faltam: primeiro o resto da ênfase, depois o que estiver ao alcance
+  let falta = contaEletivas().falta
+    - daEnfase.reduce((t, c) => t + (GRADE.get(c).t === 'el' ? GRADE.get(c).ca : 0), 0);
+  const extras = [];
+  const usadas = new Set(daEnfase);
+  const outras = pendentes('el').map((d) => d.c).filter((c) => !ESTAGIO.has(c) && alcancavel(c)).sort(porPeriodo);
+  for (const c of [...reserva, ...outras]) {
+    if (falta <= 0) break;
+    if (usadas.has(c) || GRADE.get(c).t !== 'el') continue;
+    usadas.add(c);
+    extras.push(c);
+    falta -= GRADE.get(c).ca;
+  }
+  return { obrigatorias, daEnfase: [...new Set(daEnfase)], extras };
+}
+
+/**
+ * Encaixa `siglas` no plano, do primeiro semestre ao último, sem passar do
+ * limite de créditos e só onde avaliar() não bloqueia. Cria semestres se faltar.
+ * Muda S.plano; devolve o que não coube.
+ */
+function encaixar(siglas) {
+  const resto = [...siglas].sort(porPeriodo);
+  let criados = 0;
+  for (let idx = 0; resto.length; idx++) {
+    if (idx >= S.plano.length) {
+      if (criados === SEMESTRES_EXTRAS) break;
+      const u = S.plano[S.plano.length - 1];
+      S.plano.push({ ...(u.sem === 1 ? { ano: u.ano, sem: 2 } : { ano: u.ano + 1, sem: 1 }), itens: [] });
+      criados++;
+    }
+    const s = S.plano[idx];
+    for (let mudou = true; mudou;) {
+      mudou = false;
+      for (const c of [...resto]) {
+        if (creditosDoSemestre(s) + GRADE.get(c).ca > LIMITE_CREDITOS) continue;
+        if (avaliar(c, idx).bloqueios.length) continue;
+        s.itens.push(c);
+        resto.splice(resto.indexOf(c), 1);
+        mudou = true;
+      }
+    }
+  }
+  // semestres criados que ficaram vazios saem
+  while (criados-- > 0 && S.plano.length > 1 && !S.plano[S.plano.length - 1].itens.length) S.plano.pop();
+  return resto;
+}
+
+/** Simula a sugestão sem mexer no plano: semestre sugerido de cada sigla. */
+function sugestao(e) {
+  const escolha = escolherParaEnfase(e);
+  const antes = copiaPlano(S.plano);
+  const dentro = planejadas();
+  const naoCoube = encaixar([...escolha.obrigatorias, ...escolha.daEnfase, ...escolha.extras]);
+  const onde = new Map();
+  S.plano.forEach((s) => s.itens.forEach((c) => { if (!dentro.has(c)) onde.set(c, `${s.ano}/${s.sem}`); }));
+  const semestres = S.plano.length;
+  S.plano = antes;
+  return { ...escolha, onde, naoCoube, semestres };
+}
+
+function aplicarSugestao(e) {
+  S.planoAntes = copiaPlano(S.plano);
+  const { obrigatorias, daEnfase, extras } = escolherParaEnfase(e);
+  const naoCoube = encaixar([...obrigatorias, ...daEnfase, ...extras]);
+  desenhar();
+  if (naoCoube.length) recusar(naoCoube.join(', '), 'não couberam na sugestão; encaixe à mão');
+}
+
+function desfazerSugestao() {
+  if (!S.planoAntes) return;
+  S.plano = S.planoAntes;
+  S.planoAntes = null;
+  desenhar();
+}
+
 /* ------------------------------------------------------------------- cartões */
 
 function cartao(d, origem) {
@@ -228,6 +406,7 @@ function cartao(d, origem) {
   const tags = [];
   if (origem === 'rail' && !liberada(d.c)) tags.push(['bloqueio', 'requisito pendente']);
   if (origem === 'rail' && d.p) tags.push(['neutra', `${d.p}º período`]);
+  if (siglasDaEnfase().has(d.c)) tags.push(['enfase', ENFASE_CURTA[S.enfase] || 'ênfase']);
   bloqueios.forEach((b) => tags.push(['bloqueio', b]));
   avisos.forEach((a) => tags.push(['aviso', a]));
 
@@ -314,6 +493,7 @@ function recusar(codigo, motivo) {
 /* -------------------------------------------------------------- desenho (UI) */
 
 function desenhar() {
+  marcarEnfases();
   desenharRail();
   desenharBoard();
   desenharPlacar();
@@ -344,8 +524,13 @@ function desenharRail() {
 
   const alvo = el('listas');
   alvo.innerHTML = '';
+  const e = enfaseAtual();
+  if (e) alvo.appendChild(painelEnfase(e));
+
+  const daEnfase = siglasDaEnfase();
   for (const [nome, lista] of grupos) {
-    const mostradas = lista.filter(visivel).sort((a, b) => (a.p - b.p) || a.c.localeCompare(b.c));
+    const mostradas = lista.filter(visivel).sort((a, b) => (daEnfase.has(b.c) - daEnfase.has(a.c))
+      || (a.p - b.p) || a.c.localeCompare(b.c));
     const bloco = document.createElement('section');
     bloco.className = 'grupo';
     bloco.innerHTML = `
@@ -363,6 +548,81 @@ function desenharRail() {
     bloco.appendChild(corpo);
     alvo.appendChild(bloco);
   }
+}
+
+/** Chip de ênfase completa ganha um ✓ (histórico) ou ◐ (depende do plano). */
+function marcarEnfases() {
+  const completas = new Map(enfasesCompletas().map((x) => [x.id, x.situacao]));
+  el('enfases').querySelectorAll('.chip').forEach((chip) => {
+    const situacao = completas.get(chip.dataset.enfase);
+    chip.dataset.completa = situacao || '';
+    chip.title = chip.dataset.nome + (situacao === 'concluida' ? ' · concluída'
+      : situacao === 'prevista' ? ' · completa com o plano' : '');
+  });
+}
+
+const ROTULO_SITUACAO = { feita: 'feita', plano: 'no plano', falta: 'a cursar', fora: 'fora da grade' };
+
+/** Painel da ênfase escolhida: itens, situação de cada um e mínimo por grupo. */
+function painelEnfase(e) {
+  const { grupos, completa } = progressoEnfase(e);
+  const sug = sugestao(e);
+  const novas = sug.obrigatorias.length + sug.daEnfase.length + sug.extras.length - sug.naoCoube.length;
+  const bloco = document.createElement('section');
+  bloco.className = 'grupo enfase-painel';
+  const contam = grupos.reduce((t, g) => t + Math.min(g.contam, g.minimo), 0);
+  const exigidas = grupos.reduce((t, g) => t + g.minimo, 0);
+  bloco.innerHTML = `
+    <header class="grupo-cab">
+      <h3 class="grupo-nome">Ênfase · ${e.nome}</h3>
+      <span class="grupo-conta">${contam}/${exigidas}</span>
+    </header>
+    ${grupos.map((g) => `
+      <div class="enfase-grupo">
+        <p class="enfase-regra">${g.nome ? `${g.nome}: ` : ''}mínimo de ${g.minimo} disciplinas
+          ${g.falta ? `<span class="tag tag-aviso">faltam ${g.falta}</span>` : '<span class="tag tag-ok">ok</span>'}</p>
+        <ul class="enfase-itens">
+          ${g.itens.map((i) => `
+            <li class="enfase-item" data-estado="${i.estado}">
+              <span class="enfase-sigla">${i.alts.map((a) => a.c).join(' / ')}</span>
+              <span class="enfase-nome">${GRADE.get(i.c)?.n || i.alts[0].n}</span>
+              ${sug.onde.has(i.c) && sug.daEnfase.concat(sug.extras).includes(i.c)
+                ? `<span class="tag tag-sugestao" title="semestre sugerido">→ ${sug.onde.get(i.c)}</span>`
+                : `<span class="tag tag-${i.estado === 'feita' ? 'ok' : i.estado === 'plano' ? 'enfase' : i.estado === 'fora' ? 'bloqueio' : 'neutra'}">${ROTULO_SITUACAO[i.estado]}</span>`}
+            </li>`).join('')}
+        </ul>
+      </div>`).join('')}
+    <p class="enfase-fim">${completa ? `<b>${progressoEnfase(e).concluida ? 'Ênfase concluída' : 'Ênfase completa com o plano'}</b>${progressoEnfase(e).concluida ? ' pelo histórico.' : ': depende das disciplinas planejadas.'}` : 'Disciplinas fora da grade não são oferecidas para este currículo.'}</p>
+    <div class="enfase-sugestao">
+      <p class="enfase-resumo">${novas
+        ? `Sugestão: ${[
+          sug.obrigatorias.length && `${sug.obrigatorias.length} obrigatória(s)`,
+          sug.daEnfase.length && `${sug.daEnfase.length} da ênfase`,
+          sug.extras.length && `${sug.extras.length} eletiva(s) para fechar créditos`,
+        ].filter(Boolean).join(' + ')} em ${sug.semestres} semestres, até ${LIMITE_CREDITOS} créd.-aula cada.`
+        : 'Nada a sugerir: o plano já cobre o que dá para encaixar.'}
+        ${sug.naoCoube.length ? `<span class="placar-erro">Não coube: ${sug.naoCoube.join(', ')}.</span>` : ''}</p>
+      <div class="enfase-botoes"></div>
+    </div>`;
+
+  const botoes = bloco.querySelector('.enfase-botoes');
+  if (novas) {
+    const aplicar = document.createElement('button');
+    aplicar.type = 'button';
+    aplicar.className = 'btn btn-primario btn-pequeno';
+    aplicar.textContent = 'Aplicar sugestão ao plano';
+    aplicar.addEventListener('click', () => aplicarSugestao(e));
+    botoes.appendChild(aplicar);
+  }
+  if (S.planoAntes) {
+    const desfazer = document.createElement('button');
+    desfazer.type = 'button';
+    desfazer.className = 'btn btn-fantasma btn-pequeno';
+    desfazer.textContent = 'Desfazer sugestão';
+    desfazer.addEventListener('click', desfazerSugestao);
+    botoes.appendChild(desfazer);
+  }
+  return bloco;
 }
 
 function desenharBoard() {
@@ -456,10 +716,10 @@ function adicionarSemestre() {
   desenhar();
 }
 
-function medidor({ nome, valor, atual, alvo, nota, ok }) {
+function medidor({ nome, valor, atual, alvo, nota, ok, estado }) {
   const pct = Math.min(100, Math.round((atual / Math.max(alvo, 1)) * 100));
   return `
-    <div class="medidor" data-estado="${ok ? 'ok' : 'falta'}">
+    <div class="medidor" data-estado="${estado || (ok ? 'ok' : 'falta')}">
       <div class="medidor-cab"><span class="medidor-nome">${nome}</span><span class="medidor-valor">${valor}</span></div>
       <div class="medidor-barra"><i style="width:${pct}%"></i></div>
       ${nota ? `<p class="medidor-nota">${nota}</p>` : ''}
@@ -485,6 +745,7 @@ function diagnostico() {
 
   return {
     faltaOb, eletivas, obTotal, cobertas, sobrecarga, abaixoMinimo, pendenciasPdf,
+    enfases: enfasesCompletas(),
     pronto: !faltaOb.length && !eletivas.falta && !abaixoMinimo.length,
   };
 }
@@ -511,6 +772,13 @@ function desenharPlacar() {
     medidor({
       nome: 'Extensão', valor: `${h.ext}/${G.extensaoHorasExigidas} h`, atual: h.ext,
       alvo: G.extensaoHorasExigidas, ok: h.ext >= G.extensaoHorasExigidas, nota: 'lido do histórico',
+    }),
+    medidor({
+      nome: 'Ênfases', valor: `${d.enfases.length} completa${d.enfases.length === 1 ? '' : 's'}`,
+      atual: d.enfases.length, alvo: 1, estado: d.enfases.length ? 'ok' : 'neutro',
+      nota: d.enfases.length
+        ? d.enfases.map((x) => `${x.nome}${x.situacao === 'prevista' ? ' (com o plano)' : ''}`).join(' · ')
+        : 'opcional · escolha uma em "Ênfase"',
     }),
   ].join('');
 
@@ -614,6 +882,25 @@ function ligarControles() {
       desenharRail();
     });
     filtros.appendChild(chip);
+  });
+
+  const enfases = el('enfases');
+  ENFASES.forEach((e) => {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.textContent = ENFASE_CURTA[e.id] || e.nome;
+    chip.title = e.nome;
+    chip.dataset.enfase = e.id;
+    chip.dataset.nome = e.nome;
+    chip.setAttribute('aria-pressed', 'false');
+    chip.addEventListener('click', () => {
+      S.enfase = S.enfase === e.id ? null : e.id;
+      enfases.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === chip && !!S.enfase)));
+      desenhar();
+      el('listas').scrollTop = 0;
+    });
+    enfases.appendChild(chip);
   });
 
   el('chk-paridade').addEventListener('change', (ev) => {

@@ -30,6 +30,20 @@ Abra <http://localhost:8000> no navegador. Para parar, `Ctrl+C`.
 3. Arraste as disciplinas da coluna "A cursar" para os semestres.
 4. Quando obrigatórias e eletivas fecharem, o botão **Baixar plano em PDF** aparece.
 
+### Ênfases
+
+Os chips em **Ênfase** mostram os certificados de estudos especiais da grade (IA, Engenharia
+de Software, Ciência de Dados…). Escolher um abre um painel com as disciplinas da ênfase, o
+que já foi feito, o mínimo exigido e o **semestre sugerido** para cada uma que falta.
+**Aplicar sugestão ao plano** encaixa as obrigatórias pendentes, o mínimo da ênfase e, se
+ainda faltarem créditos eletivos, mais optativas — respeitando requisitos, paridade e o
+limite de 20 créditos-aula por semestre, criando semestres se precisar. **Desfazer sugestão**
+volta o plano para como estava. Disciplinas citadas na ênfase mas fora da grade aparecem
+marcadas e não entram na sugestão.
+
+Ênfase completa ganha **✓** no chip (concluída pelo histórico) ou **◐** (completa contando o
+plano), aparece no medidor **Ênfases** do placar e sai numa tabela própria no PDF.
+
 Regras aplicadas ao arrastar:
 
 - **Requisito** não cumprido **bloqueia** o encaixe — nota não substitui conclusão.
