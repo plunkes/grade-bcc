@@ -7,6 +7,20 @@ import { lerHistorico, CONCLUIDO, CURSANDO } from './historico.js';
 const G = window.CURRICULO;
 const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
 const ESTAGIO = new Set(G.disciplinasEstagioProjeto);
+const ENFASES = G.enfases || [];
+
+/* rótulo curto do chip de cada ênfase; o nome completo vai no painel */
+const ENFASE_CURTA = {
+  'desenvolvimento-web': 'web',
+  'engenharia-de-dados': 'eng. dados',
+  'engenharia-de-software': 'eng. software',
+  'inteligencia-artificial': 'IA',
+  robotica: 'robótica',
+  'sistemas-computacionais-avancados-e-de-alto-desempenho': 'alto desempenho',
+  'sistemas-embarcados': 'embarcados',
+  'tecnicas-de-programacao-avancada': 'programação',
+  'ciencia-de-dados': 'ciência de dados',
+};
 
 const LIMITE_CREDITOS = 20; // acima disso o semestre é marcado como puxado
 const MINIMO_CREDITOS = 12; // abaixo disso o semestre não vale, exceto os dois últimos
@@ -62,6 +76,7 @@ const S = {
   soLiberadas: false,
   paridade: true,
   aproveitarLivres: true,
+  enfase: null,     // id da ênfase escolhida
 };
 
 /* ------------------------------------------------------- derivação de estado */
@@ -130,6 +145,41 @@ function contaEletivas() {
     exigido: G.creditosEletivosExigidos,
     falta: Math.max(0, G.creditosEletivosExigidos - total),
   };
+}
+
+/* ---------------------------------------------------------------- ênfases */
+
+const enfaseAtual = () => ENFASES.find((e) => e.id === S.enfase) || null;
+
+/** Siglas da ênfase escolhida (todas as alternativas). */
+function siglasDaEnfase() {
+  const e = enfaseAtual();
+  return new Set(e ? e.grupos.flatMap((g) => g.itens.flat().map((a) => a.c)) : []);
+}
+
+/**
+ * Situação de um item da ênfase (lista de siglas alternativas):
+ * feita (histórico), plano (já num semestre), falta (na grade) ou fora (fora da grade).
+ */
+function situacaoItem(alternativas) {
+  const dentro = planejadas();
+  const feita = alternativas.find((a) => jaTem(a.c));
+  if (feita) return { c: feita.c, estado: 'feita' };
+  const plano = alternativas.find((a) => dentro.has(a.c));
+  if (plano) return { c: plano.c, estado: 'plano' };
+  const naGrade = alternativas.find((a) => GRADE.has(a.c));
+  if (naGrade) return { c: naGrade.c, estado: 'falta' };
+  return { c: alternativas[0].c, estado: 'fora' };
+}
+
+/** Progresso por grupo: quantos itens já contam (feitos ou no plano). */
+function progressoEnfase(e) {
+  const grupos = e.grupos.map((g) => {
+    const itens = g.itens.map((alts) => ({ alts, ...situacaoItem(alts) }));
+    const contam = itens.filter((i) => i.estado === 'feita' || i.estado === 'plano').length;
+    return { ...g, itens, contam, falta: Math.max(0, g.minimo - contam) };
+  });
+  return { grupos, completa: grupos.every((g) => !g.falta) };
 }
 
 /* ------------------------------------------------------------- requisitos */
@@ -228,6 +278,7 @@ function cartao(d, origem) {
   const tags = [];
   if (origem === 'rail' && !liberada(d.c)) tags.push(['bloqueio', 'requisito pendente']);
   if (origem === 'rail' && d.p) tags.push(['neutra', `${d.p}º período`]);
+  if (siglasDaEnfase().has(d.c)) tags.push(['enfase', ENFASE_CURTA[S.enfase] || 'ênfase']);
   bloqueios.forEach((b) => tags.push(['bloqueio', b]));
   avisos.forEach((a) => tags.push(['aviso', a]));
 
@@ -344,8 +395,13 @@ function desenharRail() {
 
   const alvo = el('listas');
   alvo.innerHTML = '';
+  const e = enfaseAtual();
+  if (e) alvo.appendChild(painelEnfase(e));
+
+  const daEnfase = siglasDaEnfase();
   for (const [nome, lista] of grupos) {
-    const mostradas = lista.filter(visivel).sort((a, b) => (a.p - b.p) || a.c.localeCompare(b.c));
+    const mostradas = lista.filter(visivel).sort((a, b) => (daEnfase.has(b.c) - daEnfase.has(a.c))
+      || (a.p - b.p) || a.c.localeCompare(b.c));
     const bloco = document.createElement('section');
     bloco.className = 'grupo';
     bloco.innerHTML = `
@@ -363,6 +419,37 @@ function desenharRail() {
     bloco.appendChild(corpo);
     alvo.appendChild(bloco);
   }
+}
+
+const ROTULO_SITUACAO = { feita: 'feita', plano: 'no plano', falta: 'a cursar', fora: 'fora da grade' };
+
+/** Painel da ênfase escolhida: itens, situação de cada um e mínimo por grupo. */
+function painelEnfase(e) {
+  const { grupos, completa } = progressoEnfase(e);
+  const bloco = document.createElement('section');
+  bloco.className = 'grupo enfase-painel';
+  const contam = grupos.reduce((t, g) => t + Math.min(g.contam, g.minimo), 0);
+  const exigidas = grupos.reduce((t, g) => t + g.minimo, 0);
+  bloco.innerHTML = `
+    <header class="grupo-cab">
+      <h3 class="grupo-nome">Ênfase · ${e.nome}</h3>
+      <span class="grupo-conta">${contam}/${exigidas}</span>
+    </header>
+    ${grupos.map((g) => `
+      <div class="enfase-grupo">
+        <p class="enfase-regra">${g.nome ? `${g.nome}: ` : ''}mínimo de ${g.minimo} disciplinas
+          ${g.falta ? `<span class="tag tag-aviso">faltam ${g.falta}</span>` : '<span class="tag tag-ok">ok</span>'}</p>
+        <ul class="enfase-itens">
+          ${g.itens.map((i) => `
+            <li class="enfase-item" data-estado="${i.estado}">
+              <span class="enfase-sigla">${i.alts.map((a) => a.c).join(' / ')}</span>
+              <span class="enfase-nome">${GRADE.get(i.c)?.n || i.alts[0].n}</span>
+              <span class="tag tag-${i.estado === 'feita' ? 'ok' : i.estado === 'plano' ? 'enfase' : i.estado === 'fora' ? 'bloqueio' : 'neutra'}">${ROTULO_SITUACAO[i.estado]}</span>
+            </li>`).join('')}
+        </ul>
+      </div>`).join('')}
+    <p class="enfase-fim">${completa ? '<b>Certificado coberto</b> pelo histórico e pelo plano.' : 'Disciplinas fora da grade não são oferecidas para este currículo.'}</p>`;
+  return bloco;
 }
 
 function desenharBoard() {
@@ -614,6 +701,23 @@ function ligarControles() {
       desenharRail();
     });
     filtros.appendChild(chip);
+  });
+
+  const enfases = el('enfases');
+  ENFASES.forEach((e) => {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.textContent = ENFASE_CURTA[e.id] || e.nome;
+    chip.title = e.nome;
+    chip.setAttribute('aria-pressed', 'false');
+    chip.addEventListener('click', () => {
+      S.enfase = S.enfase === e.id ? null : e.id;
+      enfases.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === chip && !!S.enfase)));
+      desenhar();
+      el('listas').scrollTop = 0;
+    });
+    enfases.appendChild(chip);
   });
 
   el('chk-paridade').addEventListener('change', (ev) => {
