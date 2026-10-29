@@ -20,6 +20,9 @@ TIPOS = {
 }
 # Período ideal que mudou depois da grade salva: sigla -> período (a paridade
 # decide se a disciplina é de 1º ou 2º semestre).
+# estágio, projeto de graduação, intercâmbio e empreendedor (I e II)
+ESTAGIO_PROJETO = ["SCC0291", "SCC0292", "SCC0289", "SCC0290", "SCC0293", "SCC0294", "SCC0300", "SCC0302"]
+
 PERIODO_CORRIGIDO = {
     "SCC0245": 8,  # Processamento Analítico de Dados passou para os semestres pares
 }
@@ -124,6 +127,13 @@ def main():
         if codigo in disciplinas:
             disciplinas[codigo]["p"] = periodo
 
+    # estágio e projetos: II não depende de I, qualquer combinação vale
+    for codigo in ESTAGIO_PROJETO:
+        if codigo in disciplinas:
+            disciplinas[codigo]["r"] = [
+                g for g in disciplinas[codigo]["r"] if not all(r["c"] in ESTAGIO_PROJETO for r in g)
+            ]
+
     obrig = [c for c in ordem if disciplinas[c]["t"] == "ob"]
     dados = {
         "curso": "Bacharelado em Ciências de Computação — ICMC/USP",
@@ -136,17 +146,9 @@ def main():
         "creditosLivresAproveitaveis": 4, # limite de livres contado como eletivo
         "aacHorasExigidas": 30,
         "creditosParaEstagio": 100,
-        "disciplinasEstagioProjeto": [
-            "SCC0291", "SCC0292", "SCC0289", "SCC0290", "SCC0293", "SCC0294",
-            "SCC0300", "SCC0302",
-        ],
-        # basta concluir uma das trilhas; a primeira é a padrão (obrigatória na grade)
-        "trilhasEstagio": [
-            {"nome": "Estágio Supervisionado", "siglas": ["SCC0291", "SCC0292"]},
-            {"nome": "Projeto de Graduação", "siglas": ["SCC0293", "SCC0294"]},
-            {"nome": "Projeto em Intercâmbio", "siglas": ["SCC0289", "SCC0290"]},
-            {"nome": "Projeto Empreendedor", "siglas": ["SCC0300", "SCC0302"]},
-        ],
+        "disciplinasEstagioProjeto": ESTAGIO_PROJETO,
+        # basta cursar 2 delas, em qualquer combinação (I e II não se distinguem)
+        "estagioProjetoExigidas": 2,
         "disciplinas": [disciplinas[c] for c in ordem],
     }
 
