@@ -52,7 +52,7 @@ A combinação é otimizada:
 **Aplicar ao plano** encaixa as obrigatórias pendentes, as disciplinas escolhidas e, se ainda
 faltarem créditos eletivos, mais optativas. A distribuição usa o menor número de semestres em
 que tudo cabe e **equilibra a carga** entre eles (respeitando requisitos, paridade, estágio e o
-limite de 20 créditos-aula), sem mexer no que você já tinha posto. **Desfazer** volta o plano.
+limite de 20 créditos-aula), sem mexer no que você já tinha posto. **Desfazer** volta o plano. **Limpar** (ao lado dos chips ou no painel) tira todas as ênfases da otimização sem mexer no plano.
 Disciplinas citadas na ênfase mas fora da grade aparecem marcadas e nunca são sugeridas.
 
 Ênfase completa ganha **✓** no chip (concluída pelo histórico) ou **◐** (completa contando o

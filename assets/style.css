@@ -317,6 +317,8 @@ button { font: inherit; color: inherit; }
   text-transform: uppercase;
   color: var(--ink-3);
 }
+#enfases .chip-limpar { color: var(--ink-3); border-style: dashed; }
+#enfases .chip-limpar[hidden] { display: none; }
 #enfases { margin-top: 6px; }
 #enfases .chip[data-completa]:not([data-completa=""])::after { content: " ✓"; color: var(--ok); }
 #enfases .chip[data-completa="prevista"]::after { content: " ◐"; }

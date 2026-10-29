@@ -749,9 +749,17 @@ function desenharRail() {
 }
 
 /** Chip de ênfase completa ganha um ✓ (histórico) ou ◐ (depende do plano). */
+/** Tira todas as ênfases da otimização; o plano fica como está. */
+function limparEnfases() {
+  S.enfases.clear();
+  el('enfases').querySelectorAll('.chip[data-enfase]').forEach((chip) => chip.setAttribute('aria-pressed', 'false'));
+  desenhar();
+}
+
 function marcarEnfases() {
   const completas = new Map(enfasesCompletas().map((x) => [x.id, x.situacao]));
-  el('enfases').querySelectorAll('.chip').forEach((chip) => {
+  el('btn-limpar-enfases').hidden = !S.enfases.size;
+  el('enfases').querySelectorAll('.chip[data-enfase]').forEach((chip) => {
     const situacao = completas.get(chip.dataset.enfase);
     chip.dataset.completa = situacao || '';
     chip.title = chip.dataset.nome + (situacao === 'concluida' ? ' · concluída'
@@ -848,6 +856,12 @@ function painelOtimizacao(enfases) {
     aplicar.addEventListener('click', () => aplicarSugestao(enfases));
     botoes.appendChild(aplicar);
   }
+  const limpar = document.createElement('button');
+  limpar.type = 'button';
+  limpar.className = 'btn btn-fantasma btn-pequeno';
+  limpar.textContent = 'Limpar ênfases';
+  limpar.addEventListener('click', limparEnfases);
+  botoes.appendChild(limpar);
   if (S.planoAntes) {
     const desfazer = document.createElement('button');
     desfazer.type = 'button';
@@ -1150,6 +1164,15 @@ function ligarControles() {
     });
     enfases.appendChild(chip);
   });
+  const limpar = document.createElement('button');
+  limpar.className = 'chip chip-limpar';
+  limpar.type = 'button';
+  limpar.id = 'btn-limpar-enfases';
+  limpar.textContent = '× Limpar';
+  limpar.title = 'Tira todas as ênfases da otimização';
+  limpar.hidden = true;
+  limpar.addEventListener('click', limparEnfases);
+  enfases.appendChild(limpar);
 
   el('chk-paridade').addEventListener('change', (ev) => {
     S.paridade = ev.target.checked;
