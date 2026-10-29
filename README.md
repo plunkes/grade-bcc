@@ -39,7 +39,8 @@ Regras aplicadas ao arrastar:
 - **Requisito fraco** só libera com a disciplina cumprida (ou planejada antes) ou com **nota ≥ 3,0** nela; sem isso, bloqueia. **Indicação de conjunto** só avisa.
 - Disciplina de período ideal ímpar só entra em 1º semestre (e par em 2º). Desligue em
   "Só disciplinas do semestre certo" para planejar fora da paridade.
-- Estágio e projetos de graduação exigem 100 créditos-aula aprovados antes.
+- Estágio e projetos (graduação, intercâmbio, empreendedor) exigem 100 créditos-aula aprovados antes,
+  mas valem em qualquer semestre, sem a regra de paridade.
 - Semestre acima de 20 créditos-aula é marcado como **puxado**, na tela e no PDF. É só aviso: o encaixe continua valendo.
 - Semestre com menos de **12 créditos-aula** invalida o plano e segura o PDF. Só os **2 últimos** semestres do plano podem ficar abaixo disso.
 - AAC e extensão são lidos do histórico: entram no placar e, se faltarem, saem listados no PDF.

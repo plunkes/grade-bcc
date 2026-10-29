@@ -134,7 +134,8 @@ function contaEletivas() {
 
 /* ------------------------------------------------------------- requisitos */
 
-const paridadeOk = (d, coluna) => !d.p || (d.p % 2 === 1 ? coluna.sem === 1 : coluna.sem === 2);
+// estágio e projetos (graduação, intercâmbio, empreendedor) podem ser feitos em qualquer semestre
+const paridadeOk = (d, coluna) => !d.p || ESTAGIO.has(d.c) || (d.p % 2 === 1 ? coluna.sem === 1 : coluna.sem === 2);
 
 /**
  * Avalia colocar `codigo` na coluna `idx`.
