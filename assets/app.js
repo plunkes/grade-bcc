@@ -209,7 +209,8 @@ function enfasesCompletas() {
 
 /* ------------------------------------------------------------- requisitos */
 
-const paridadeOk = (d, coluna) => !d.p || (d.p % 2 === 1 ? coluna.sem === 1 : coluna.sem === 2);
+// estágio e projetos (graduação, intercâmbio, empreendedor) podem ser feitos em qualquer semestre
+const paridadeOk = (d, coluna) => !d.p || ESTAGIO.has(d.c) || (d.p % 2 === 1 ? coluna.sem === 1 : coluna.sem === 2);
 
 /**
  * Avalia colocar `codigo` na coluna `idx`.
@@ -939,6 +940,20 @@ function desenharBoard() {
     board.scrollLeft = board.scrollWidth;
   });
   board.appendChild(mais);
+
+  if (S.plano.length > 1) {
+    const ultimo = S.plano[S.plano.length - 1];
+    const menos = document.createElement('button');
+    menos.className = 'coluna coluna-mais coluna-menos';
+    menos.type = 'button';
+    menos.innerHTML = `<span>−</span> Remover ${ultimo.ano}/${ultimo.sem}`;
+    menos.title = 'As disciplinas dele voltam para a lista';
+    menos.addEventListener('click', () => {
+      S.plano.pop();
+      desenhar();
+    });
+    board.appendChild(menos);
+  }
 }
 
 function adicionarSemestre() {

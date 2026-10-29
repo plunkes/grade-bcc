@@ -571,6 +571,7 @@ button { font: inherit; color: inherit; }
   transition: color .12s, border-color .12s, background .12s;
 }
 .coluna-mais:hover { color: var(--brand); border-color: var(--brand); background: var(--surface); }
+.coluna-menos:hover { color: var(--block); border-color: var(--block); background: var(--block-bg); }
 .coluna-mais span {
   display: grid;
   place-items: center;
