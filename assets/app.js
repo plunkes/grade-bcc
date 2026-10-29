@@ -180,7 +180,23 @@ function progressoEnfase(e) {
     const contam = itens.filter((i) => i.estado === 'feita' || i.estado === 'plano').length;
     return { ...g, itens, contam, falta: Math.max(0, g.minimo - contam) };
   });
-  return { grupos, completa: grupos.every((g) => !g.falta) };
+  const concluida = grupos.every((g) => g.itens.filter((i) => i.estado === 'feita').length >= g.minimo);
+  return { grupos, completa: grupos.every((g) => !g.falta), concluida };
+}
+
+/**
+ * Ênfases cujo mínimo já fecha: "concluída" só com o histórico,
+ * "prevista" quando depende de disciplinas do plano.
+ */
+function enfasesCompletas() {
+  return ENFASES.map((e) => ({ e, ...progressoEnfase(e) }))
+    .filter((x) => x.completa)
+    .map(({ e, grupos, concluida }) => ({
+      id: e.id,
+      nome: e.nome,
+      situacao: concluida ? 'concluida' : 'prevista',
+      disciplinas: grupos.flatMap((g) => g.itens.filter((i) => i.estado !== 'falta' && i.estado !== 'fora').map((i) => i.c)),
+    }));
 }
 
 /* ------------------------------------------------------------- requisitos */
@@ -477,6 +493,7 @@ function recusar(codigo, motivo) {
 /* -------------------------------------------------------------- desenho (UI) */
 
 function desenhar() {
+  marcarEnfases();
   desenharRail();
   desenharBoard();
   desenharPlacar();
@@ -533,6 +550,17 @@ function desenharRail() {
   }
 }
 
+/** Chip de ênfase completa ganha um ✓ (histórico) ou ◐ (depende do plano). */
+function marcarEnfases() {
+  const completas = new Map(enfasesCompletas().map((x) => [x.id, x.situacao]));
+  el('enfases').querySelectorAll('.chip').forEach((chip) => {
+    const situacao = completas.get(chip.dataset.enfase);
+    chip.dataset.completa = situacao || '';
+    chip.title = chip.dataset.nome + (situacao === 'concluida' ? ' · concluída'
+      : situacao === 'prevista' ? ' · completa com o plano' : '');
+  });
+}
+
 const ROTULO_SITUACAO = { feita: 'feita', plano: 'no plano', falta: 'a cursar', fora: 'fora da grade' };
 
 /** Painel da ênfase escolhida: itens, situação de cada um e mínimo por grupo. */
@@ -564,7 +592,7 @@ function painelEnfase(e) {
             </li>`).join('')}
         </ul>
       </div>`).join('')}
-    <p class="enfase-fim">${completa ? '<b>Certificado coberto</b> pelo histórico e pelo plano.' : 'Disciplinas fora da grade não são oferecidas para este currículo.'}</p>
+    <p class="enfase-fim">${completa ? `<b>${progressoEnfase(e).concluida ? 'Ênfase concluída' : 'Ênfase completa com o plano'}</b>${progressoEnfase(e).concluida ? ' pelo histórico.' : ': depende das disciplinas planejadas.'}` : 'Disciplinas fora da grade não são oferecidas para este currículo.'}</p>
     <div class="enfase-sugestao">
       <p class="enfase-resumo">${novas
         ? `Sugestão: ${[
@@ -688,10 +716,10 @@ function adicionarSemestre() {
   desenhar();
 }
 
-function medidor({ nome, valor, atual, alvo, nota, ok }) {
+function medidor({ nome, valor, atual, alvo, nota, ok, estado }) {
   const pct = Math.min(100, Math.round((atual / Math.max(alvo, 1)) * 100));
   return `
-    <div class="medidor" data-estado="${ok ? 'ok' : 'falta'}">
+    <div class="medidor" data-estado="${estado || (ok ? 'ok' : 'falta')}">
       <div class="medidor-cab"><span class="medidor-nome">${nome}</span><span class="medidor-valor">${valor}</span></div>
       <div class="medidor-barra"><i style="width:${pct}%"></i></div>
       ${nota ? `<p class="medidor-nota">${nota}</p>` : ''}
@@ -717,6 +745,7 @@ function diagnostico() {
 
   return {
     faltaOb, eletivas, obTotal, cobertas, sobrecarga, abaixoMinimo, pendenciasPdf,
+    enfases: enfasesCompletas(),
     pronto: !faltaOb.length && !eletivas.falta && !abaixoMinimo.length,
   };
 }
@@ -743,6 +772,13 @@ function desenharPlacar() {
     medidor({
       nome: 'Extensão', valor: `${h.ext}/${G.extensaoHorasExigidas} h`, atual: h.ext,
       alvo: G.extensaoHorasExigidas, ok: h.ext >= G.extensaoHorasExigidas, nota: 'lido do histórico',
+    }),
+    medidor({
+      nome: 'Ênfases', valor: `${d.enfases.length} completa${d.enfases.length === 1 ? '' : 's'}`,
+      atual: d.enfases.length, alvo: 1, estado: d.enfases.length ? 'ok' : 'neutro',
+      nota: d.enfases.length
+        ? d.enfases.map((x) => `${x.nome}${x.situacao === 'prevista' ? ' (com o plano)' : ''}`).join(' · ')
+        : 'opcional · escolha uma em "Ênfase"',
     }),
   ].join('');
 
@@ -855,6 +891,8 @@ function ligarControles() {
     chip.type = 'button';
     chip.textContent = ENFASE_CURTA[e.id] || e.nome;
     chip.title = e.nome;
+    chip.dataset.enfase = e.id;
+    chip.dataset.nome = e.nome;
     chip.setAttribute('aria-pressed', 'false');
     chip.addEventListener('click', () => {
       S.enfase = S.enfase === e.id ? null : e.id;

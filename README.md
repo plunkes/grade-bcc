@@ -41,6 +41,9 @@ limite de 20 créditos-aula por semestre, criando semestres se precisar. **Desfa
 volta o plano para como estava. Disciplinas citadas na ênfase mas fora da grade aparecem
 marcadas e não entram na sugestão.
 
+Ênfase completa ganha **✓** no chip (concluída pelo histórico) ou **◐** (completa contando o
+plano), aparece no medidor **Ênfases** do placar e sai numa tabela própria no PDF.
+
 Regras aplicadas ao arrastar:
 
 - **Requisito** não cumprido **bloqueia** o encaixe — nota não substitui conclusão.

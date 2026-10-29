@@ -318,6 +318,9 @@ button { font: inherit; color: inherit; }
   color: var(--ink-3);
 }
 #enfases { margin-top: 6px; }
+#enfases .chip[data-completa]:not([data-completa=""])::after { content: " ✓"; color: var(--ok); }
+#enfases .chip[data-completa="prevista"]::after { content: " ◐"; }
+#enfases .chip[aria-pressed="true"]::after { color: inherit; }
 #enfases .chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); }
 
 .enfase-painel { padding-bottom: 4px; }

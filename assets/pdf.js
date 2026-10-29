@@ -98,6 +98,37 @@ function tabelaSituacao(doc, y, d, h) {
   return doc.lastAutoTable.finalY + 16;
 }
 
+function tabelaEnfases(doc, y, d) {
+  doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(...TINTA);
+  doc.text('Ênfases completas', MARGEM, y + 4);
+  if (!d.enfases.length) {
+    doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...CINZA);
+    doc.text('Nenhuma ênfase (certificado de estudos especiais) completa com o histórico e o plano.', MARGEM, y + 20);
+    return y + 36;
+  }
+  doc.autoTable({
+    startY: y + 14,
+    head: [['Ênfase', 'Disciplinas que contam', 'Situação']],
+    body: d.enfases.map((x) => [
+      x.nome,
+      x.disciplinas.join(', '),
+      x.situacao === 'concluida' ? 'Concluída' : 'Completa com o plano',
+    ]),
+    theme: 'grid',
+    margin: { left: MARGEM, right: MARGEM },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: 4, textColor: TINTA, lineColor: [214, 221, 229] },
+    headStyles: { fillColor: [35, 69, 127], textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 150 }, 2: { cellWidth: 104 } },
+    didParseCell: (dados) => {
+      if (dados.section === 'body' && dados.column.index === 2) {
+        dados.cell.styles.textColor = dados.cell.raw === 'Concluída' ? [21, 107, 72] : [35, 69, 127];
+        dados.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+  return doc.lastAutoTable.finalY + 16;
+}
+
 function pendencias(doc, y, d) {
   if (!d.pendenciasPdf.length) {
     doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(21, 107, 72);
@@ -149,6 +180,9 @@ export function gerarPdf() {
   doc.text('Fechamento do curso', MARGEM, y + 4);
   y = tabelaSituacao(doc, y + 14, d, h);
   y = pendencias(doc, y, d);
+
+  if (y > limite - 90) { doc.addPage(); y = MARGEM + 16; }
+  y = tabelaEnfases(doc, y, d);
 
   const puxados = cheios.filter((s) => creditosDoSemestre(s) > LIMITE_CREDITOS);
   if (puxados.length) {
