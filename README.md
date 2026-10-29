@@ -55,6 +55,21 @@ Regras aplicadas ao arrastar:
 - Semestre com menos de **12 créditos-aula** invalida o plano e segura o PDF. Só os **2 últimos** semestres do plano podem ficar abaixo disso.
 - AAC e extensão são lidos do histórico: entram no placar e, se faltarem, saem listados no PDF.
 
+### Equivalências
+
+O ICMC aceita disciplinas de outros cursos no lugar das do BCC, pela **tabela de
+equivalências**. O contínuo usa a tabela de dois jeitos:
+
+- **Histórico.** Disciplina de outro curso já cursada (ou em andamento) que equivale a uma da
+  grade cobre essa disciplina: ela sai de "A cursar" e aparece em **Cobertas por
+  equivalência**. Eletivas cobertas assim somam créditos no placar (sujeito a aprovação).
+- **Plano.** Cartões com equivalente ganham o seletor **cursar como**. Planejada como a
+  equivalente, a disciplina deixa de seguir a paridade da grade (a oferta é a do outro curso;
+  confira no Júpiter), o que dá mais folga para montar os semestres.
+
+As equivalências usadas saem numa tabela própria no PDF. O aproveitamento ainda precisa ser
+pedido no Serviço de Graduação.
+
 ## Privacidade
 
 Tudo roda no seu navegador: o PDF é lido localmente, nada é enviado e nada é salvo (sem
@@ -75,6 +90,15 @@ depois de salvar uma versão nova:
 python3 tools/extract_curriculum.py
 ```
 
+## Atualizar a tabela de equivalências
+
+Salve a planilha nova como `Tabela de equivalências ATUALIZADA.xls` e rode (precisa de
+[uv](https://docs.astral.sh/uv/) para baixar o `xlrd`):
+
+```bash
+uv run --with xlrd python3 tools/extract_equivalencias.py
+```
+
 ## Arquivos
 
 | Caminho | O que é |
@@ -84,7 +108,9 @@ python3 tools/extract_curriculum.py
 | `assets/app.js` | pendências, board, requisitos e placar |
 | `assets/pdf.js` | geração do plano em PDF |
 | `assets/curriculum.js` | grade curricular gerada (não editar à mão) |
+| `assets/equivalencias.js` | tabela de equivalências gerada (não editar à mão) |
 | `tools/extract_curriculum.py` | gerador da grade |
+| `tools/extract_equivalencias.py` | gerador das equivalências |
 | `tools/cdp-ui.mjs`, `tools/cdp-eval.mjs`, `tools/teste-parser.html` | conferência no Chrome headless |
 | `vendor/` | pdf.js e jsPDF locais |
 

@@ -1,7 +1,7 @@
 /* Exportação do plano em PDF, feita no próprio navegador com jsPDF.
    Lista semestre a semestre e fecha com o que ainda fica pendente. */
 
-import { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre } from './app.js';
+import { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, rotuloRegra } from './app.js';
 
 const MARGEM = 42;
 const CINZA = [110, 123, 138];
@@ -28,6 +28,8 @@ function cabecalho(doc, h) {
 function tabelaSemestre(doc, y, semestre) {
   const corpo = semestre.itens.map((c) => {
     const d = GRADE.get(c);
+    const via = S.via.get(c);
+    if (via) return [rotuloRegra(via), `${via.texto} — equivale a ${d.c} ${d.n}`, String(d.ca), String(d.ct), `${d.ch} h`];
     return [d.c, d.n, String(d.ca), String(d.ct), `${d.ch} h`];
   });
   const soma = (campo) => semestre.itens.reduce((t, c) => t + (GRADE.get(c)?.[campo] || 0), 0);
@@ -129,6 +131,32 @@ function tabelaEnfases(doc, y, d) {
   return doc.lastAutoTable.finalY + 16;
 }
 
+function tabelaEquivalencias(doc, y) {
+  const linhas = [
+    ...[...S.equivalidas].map(([c, { regra, andamento }]) => [
+      `${c} ${GRADE.get(c)?.n || ''}`, regra.texto, andamento ? 'Em andamento' : 'Cursada',
+    ]),
+    ...[...S.via].map(([c, regra]) => [`${c} ${GRADE.get(c)?.n || ''}`, regra.texto, 'Planejada']),
+  ];
+  if (!linhas.length) return y;
+  doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(...TINTA);
+  doc.text('Equivalências usadas', MARGEM, y + 4);
+  doc.autoTable({
+    startY: y + 14,
+    head: [['Disciplina do BCC', 'Cursada como', 'Situação']],
+    body: linhas,
+    theme: 'grid',
+    margin: { left: MARGEM, right: MARGEM },
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: 4, textColor: TINTA, lineColor: [214, 221, 229] },
+    headStyles: { fillColor: [35, 69, 127], textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 2: { cellWidth: 76 } },
+  });
+  doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(...CINZA);
+  const fim = doc.lastAutoTable.finalY;
+  doc.text('Pela tabela de equivalências do ICMC: peça o aproveitamento no Serviço de Graduação.', MARGEM, fim + 12);
+  return fim + 28;
+}
+
 function pendencias(doc, y, d) {
   if (!d.pendenciasPdf.length) {
     doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(21, 107, 72);
@@ -183,6 +211,9 @@ export function gerarPdf() {
 
   if (y > limite - 90) { doc.addPage(); y = MARGEM + 16; }
   y = tabelaEnfases(doc, y, d);
+
+  if (y > limite - 90) { doc.addPage(); y = MARGEM + 16; }
+  y = tabelaEquivalencias(doc, y);
 
   const puxados = cheios.filter((s) => creditosDoSemestre(s) > LIMITE_CREDITOS);
   if (puxados.length) {
