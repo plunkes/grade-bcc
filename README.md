@@ -41,6 +41,9 @@ Regras aplicadas ao arrastar:
   "Só disciplinas do semestre certo" para planejar fora da paridade.
 - Estágio e projetos (graduação, intercâmbio, empreendedor) exigem 100 créditos-aula aprovados antes,
   mas valem em qualquer semestre, sem a regra de paridade.
+- Basta **uma trilha** entre Estágio Supervisionado, Projeto de Graduação, Projeto em Intercâmbio e
+  Projeto Empreendedor (I e II). Vale a trilha com mais disciplinas cursadas ou planejadas (o estágio,
+  se nenhuma); ela conta como obrigatória e as outras, como eletivas.
 - **+** no fim do quadro planeja mais um semestre; **−** remove o último (as disciplinas dele voltam para a lista).
 - Semestre acima de 20 créditos-aula é marcado como **puxado**, na tela e no PDF. É só aviso: o encaixe continua valendo.
 - Semestre com menos de **12 créditos-aula** invalida o plano e segura o PDF. Só os **2 últimos** semestres do plano podem ficar abaixo disso.

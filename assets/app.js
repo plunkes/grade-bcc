@@ -96,9 +96,26 @@ function colunaDe(codigo) {
   return S.plano.findIndex((s) => s.itens.includes(codigo));
 }
 
-function pendentes(tipo) {
+/**
+ * Estágio, Projeto de Graduação, Projeto em Intercâmbio e Projeto Empreendedor
+ * se equivalem: basta uma trilha (I e II). Vale a trilha com mais disciplinas
+ * cursadas (peso 2) ou planejadas; sem nenhuma, o estágio.
+ */
+function trilhaEscolhida() {
   const dentro = planejadas();
-  return G.disciplinas.filter((d) => d.t === tipo && !jaTem(d.c) && !dentro.has(d.c));
+  const peso = (t) => t.siglas.reduce((n, c) => n + (jaTem(c) ? 2 : dentro.has(c) ? 1 : 0), 0);
+  return G.trilhasEstagio.reduce((a, b) => (peso(b) > peso(a) ? b : a));
+}
+
+/** Tipo efetivo: a trilha escolhida conta como obrigatória e as outras como eletivas. */
+function tipo(d) {
+  if (!ESTAGIO.has(d.c)) return d.t;
+  return trilhaEscolhida().siglas.includes(d.c) ? 'ob' : 'el';
+}
+
+function pendentes(t) {
+  const dentro = planejadas();
+  return G.disciplinas.filter((d) => tipo(d) === t && !jaTem(d.c) && !dentro.has(d.c));
 }
 
 /** Créditos-aula já obtidos, somados aos planejados antes da coluna `idx`. */
@@ -120,7 +137,7 @@ function contaEletivas() {
   for (const c of [...S.cursando, ...planejadas()]) {
     const d = GRADE.get(c);
     if (!d) { if (S.cursando.has(c)) fora.push(c); continue; }
-    if (d.t === 'el') el += d.ca;
+    if (tipo(d) === 'el') el += d.ca;
     else if (d.t === 'li') li += d.ca;
   }
   const aproveitado = S.aproveitarLivres ? Math.min(li, G.creditosLivresAproveitaveis) : 0;
@@ -229,6 +246,9 @@ function cartao(d, origem) {
   const tags = [];
   if (origem === 'rail' && !liberada(d.c)) tags.push(['bloqueio', 'requisito pendente']);
   if (origem === 'rail' && d.p) tags.push(['neutra', `${d.p}º período`]);
+  if (origem === 'rail' && ESTAGIO.has(d.c)) {
+    tags.push(['neutra', tipo(d) === 'ob' ? 'basta esta trilha ou outra equivalente' : 'troca o estágio, se for a trilha escolhida']);
+  }
   bloqueios.forEach((b) => tags.push(['bloqueio', b]));
   avisos.forEach((a) => tags.push(['aviso', a]));
 
@@ -485,7 +505,7 @@ function diagnostico() {
   const faltaOb = pendentes('ob');
   const eletivas = contaEletivas();
   const h = S.hist;
-  const obTotal = G.disciplinas.filter((d) => d.t === 'ob').length;
+  const obTotal = G.disciplinas.filter((d) => tipo(d) === 'ob').length;
   const cobertas = obTotal - faltaOb.length;
   const sobrecarga = S.plano.filter(pesado);
   const abaixoMinimo = S.plano.filter((s, i) => leve(s, i));

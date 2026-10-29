@@ -140,6 +140,13 @@ def main():
             "SCC0291", "SCC0292", "SCC0289", "SCC0290", "SCC0293", "SCC0294",
             "SCC0300", "SCC0302",
         ],
+        # basta concluir uma das trilhas; a primeira é a padrão (obrigatória na grade)
+        "trilhasEstagio": [
+            {"nome": "Estágio Supervisionado", "siglas": ["SCC0291", "SCC0292"]},
+            {"nome": "Projeto de Graduação", "siglas": ["SCC0293", "SCC0294"]},
+            {"nome": "Projeto em Intercâmbio", "siglas": ["SCC0289", "SCC0290"]},
+            {"nome": "Projeto Empreendedor", "siglas": ["SCC0300", "SCC0302"]},
+        ],
         "disciplinas": [disciplinas[c] for c in ordem],
     }
 
