@@ -326,7 +326,7 @@ function requisitosQuePuxa(codigo, dentro) {
   for (const g of GRADE.get(codigo).r) {
     const tipo = g[0].k;
     if (tipo === 'conjunto') continue;
-    if (g.some((r) => conta(r.c, dentro) || (GRADE.has(r.c) && tipo(GRADE.get(r.c)) === 'ob')
+    if (g.some((r) => conta(r.c, dentro) || (GRADE.has(r.c) && tipoDe(GRADE.get(r.c)) === 'ob')
       || (tipo === 'fraca' && fracoOk(r.c)))) continue;
     const alt = g.find((r) => GRADE.has(r.c) && !ESTAGIO.has(r.c));
     if (!alt) return null;
@@ -428,14 +428,14 @@ function otimizarEnfases(enfases) {
 /** Eletivas além das ênfases até fechar os créditos exigidos, preferindo as das ênfases. */
 function eletivasParaFechar(escolhidas, enfases) {
   const dentro = planejadas();
-  let falta = contaEletivas().falta - somaCa(escolhidas.filter((c) => tipo(GRADE.get(c)) === 'el'));
+  let falta = contaEletivas().falta - somaCa(escolhidas.filter((c) => tipoDe(GRADE.get(c)) === 'el'));
   const usadas = new Set(escolhidas);
   const daEnfase = enfases.flatMap((e) => e.grupos.flatMap((g) => g.itens.flat().map((a) => a.c)));
   const outras = pendentes('el').map((d) => d.c).sort(porPeriodo);
   const extras = [];
   for (const c of [...daEnfase, ...outras]) {
     if (falta <= 0) break;
-    if (usadas.has(c) || !GRADE.has(c) || tipo(GRADE.get(c)) !== 'el' || ESTAGIO.has(c) || conta(c, dentro)) continue;
+    if (usadas.has(c) || !GRADE.has(c) || tipoDe(GRADE.get(c)) !== 'el' || ESTAGIO.has(c) || conta(c, dentro)) continue;
     const f = fecho([c], new Set([...dentro, ...usadas]));
     if (!f) continue;
     f.forEach((x) => { usadas.add(x); extras.push(x); });
