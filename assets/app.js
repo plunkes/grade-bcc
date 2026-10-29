@@ -145,19 +145,23 @@ function colunaDe(codigo) {
 
 /**
  * Estágio, Projeto de Graduação, Projeto em Intercâmbio e Projeto Empreendedor
- * se equivalem: basta uma trilha (I e II). Vale a trilha com mais disciplinas
- * cursadas (peso 2) ou planejadas; sem nenhuma, o estágio.
+ * se equivalem, I e II inclusive: bastam 2 delas, em qualquer combinação. Contam
+ * como obrigatórias as 2 primeiras entre cursadas, planejadas (na ordem do plano)
+ * e, para preencher, os estágios; o resto conta como eletiva.
  */
-function trilhaEscolhida() {
-  const dentro = planejadas();
-  const peso = (t) => t.siglas.reduce((n, c) => n + (jaTem(c) ? 2 : dentro.has(c) ? 1 : 0), 0);
-  return G.trilhasEstagio.reduce((a, b) => (peso(b) > peso(a) ? b : a));
+function estagiosObrigatorios() {
+  const ordem = [
+    ...G.disciplinasEstagioProjeto.filter(jaTem),
+    ...S.plano.flatMap((s) => s.itens).filter((c) => ESTAGIO.has(c)),
+    ...G.disciplinasEstagioProjeto,
+  ];
+  return new Set([...new Set(ordem)].slice(0, G.estagioProjetoExigidas));
 }
 
-/** Tipo efetivo: a trilha escolhida conta como obrigatória e as outras como eletivas. */
+/** Tipo efetivo: estágio e projetos dependem do que já foi escolhido. */
 function tipoDe(d) {
   if (!ESTAGIO.has(d.c)) return d.t;
-  return trilhaEscolhida().siglas.includes(d.c) ? 'ob' : 'el';
+  return estagiosObrigatorios().has(d.c) ? 'ob' : 'el';
 }
 
 function pendentes(t) {
@@ -661,7 +665,7 @@ function cartao(d, origem) {
   if (origem === 'rail' && !liberada(d.c)) tags.push(['bloqueio', 'requisito pendente']);
   if (origem === 'rail' && d.p) tags.push(['neutra', `${d.p}º período`]);
   if (origem === 'rail' && ESTAGIO.has(d.c)) {
-    tags.push(['neutra', tipoDe(d) === 'ob' ? 'basta esta trilha ou outra equivalente' : 'troca o estágio, se for a trilha escolhida']);
+    tags.push(['neutra', tipoDe(d) === 'ob' ? 'troca com estágio ou projeto' : 'vale no lugar do estágio']);
   }
   const enfasesDela = siglasDaEnfase().get(d.c);
   if (enfasesDela) tags.push(['enfase', enfasesDela.join(' · ')]);
