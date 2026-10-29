@@ -112,9 +112,26 @@ function colunaDe(codigo) {
   return S.plano.findIndex((s) => s.itens.includes(codigo));
 }
 
-function pendentes(tipo) {
+/**
+ * Estágio, Projeto de Graduação, Projeto em Intercâmbio e Projeto Empreendedor
+ * se equivalem: basta uma trilha (I e II). Vale a trilha com mais disciplinas
+ * cursadas (peso 2) ou planejadas; sem nenhuma, o estágio.
+ */
+function trilhaEscolhida() {
   const dentro = planejadas();
-  return G.disciplinas.filter((d) => d.t === tipo && !jaTem(d.c) && !dentro.has(d.c));
+  const peso = (t) => t.siglas.reduce((n, c) => n + (jaTem(c) ? 2 : dentro.has(c) ? 1 : 0), 0);
+  return G.trilhasEstagio.reduce((a, b) => (peso(b) > peso(a) ? b : a));
+}
+
+/** Tipo efetivo: a trilha escolhida conta como obrigatória e as outras como eletivas. */
+function tipo(d) {
+  if (!ESTAGIO.has(d.c)) return d.t;
+  return trilhaEscolhida().siglas.includes(d.c) ? 'ob' : 'el';
+}
+
+function pendentes(t) {
+  const dentro = planejadas();
+  return G.disciplinas.filter((d) => tipo(d) === t && !jaTem(d.c) && !dentro.has(d.c));
 }
 
 /** Créditos-aula já obtidos, somados aos planejados antes da coluna `idx`. */
@@ -136,7 +153,7 @@ function contaEletivas() {
   for (const c of [...S.cursando, ...planejadas()]) {
     const d = GRADE.get(c);
     if (!d) { if (S.cursando.has(c)) fora.push(c); continue; }
-    if (d.t === 'el') el += d.ca;
+    if (tipo(d) === 'el') el += d.ca;
     else if (d.t === 'li') li += d.ca;
   }
   const aproveitado = S.aproveitarLivres ? Math.min(li, G.creditosLivresAproveitaveis) : 0;
@@ -309,7 +326,7 @@ function requisitosQuePuxa(codigo, dentro) {
   for (const g of GRADE.get(codigo).r) {
     const tipo = g[0].k;
     if (tipo === 'conjunto') continue;
-    if (g.some((r) => conta(r.c, dentro) || GRADE.get(r.c)?.t === 'ob'
+    if (g.some((r) => conta(r.c, dentro) || (GRADE.has(r.c) && tipo(GRADE.get(r.c)) === 'ob')
       || (tipo === 'fraca' && fracoOk(r.c)))) continue;
     const alt = g.find((r) => GRADE.has(r.c) && !ESTAGIO.has(r.c));
     if (!alt) return null;
@@ -411,14 +428,14 @@ function otimizarEnfases(enfases) {
 /** Eletivas além das ênfases até fechar os créditos exigidos, preferindo as das ênfases. */
 function eletivasParaFechar(escolhidas, enfases) {
   const dentro = planejadas();
-  let falta = contaEletivas().falta - somaCa(escolhidas.filter((c) => GRADE.get(c).t === 'el'));
+  let falta = contaEletivas().falta - somaCa(escolhidas.filter((c) => tipo(GRADE.get(c)) === 'el'));
   const usadas = new Set(escolhidas);
   const daEnfase = enfases.flatMap((e) => e.grupos.flatMap((g) => g.itens.flat().map((a) => a.c)));
   const outras = pendentes('el').map((d) => d.c).sort(porPeriodo);
   const extras = [];
   for (const c of [...daEnfase, ...outras]) {
     if (falta <= 0) break;
-    if (usadas.has(c) || !GRADE.has(c) || GRADE.get(c).t !== 'el' || ESTAGIO.has(c) || conta(c, dentro)) continue;
+    if (usadas.has(c) || !GRADE.has(c) || tipo(GRADE.get(c)) !== 'el' || ESTAGIO.has(c) || conta(c, dentro)) continue;
     const f = fecho([c], new Set([...dentro, ...usadas]));
     if (!f) continue;
     f.forEach((x) => { usadas.add(x); extras.push(x); });
@@ -602,6 +619,9 @@ function cartao(d, origem) {
   const tags = [];
   if (origem === 'rail' && !liberada(d.c)) tags.push(['bloqueio', 'requisito pendente']);
   if (origem === 'rail' && d.p) tags.push(['neutra', `${d.p}º período`]);
+  if (origem === 'rail' && ESTAGIO.has(d.c)) {
+    tags.push(['neutra', tipo(d) === 'ob' ? 'basta esta trilha ou outra equivalente' : 'troca o estágio, se for a trilha escolhida']);
+  }
   const enfasesDela = siglasDaEnfase().get(d.c);
   if (enfasesDela) tags.push(['enfase', enfasesDela.join(' · ')]);
   bloqueios.forEach((b) => tags.push(['bloqueio', b]));
@@ -992,7 +1012,7 @@ function diagnostico() {
   const faltaOb = pendentes('ob');
   const eletivas = contaEletivas();
   const h = S.hist;
-  const obTotal = G.disciplinas.filter((d) => d.t === 'ob').length;
+  const obTotal = G.disciplinas.filter((d) => tipo(d) === 'ob').length;
   const cobertas = obTotal - faltaOb.length;
   const sobrecarga = S.plano.filter(pesado);
   const abaixoMinimo = S.plano.filter((s, i) => leve(s, i));
