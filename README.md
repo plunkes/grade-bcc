@@ -6,6 +6,9 @@ Planejador dos semestres que faltam no **Bacharelado em Ciências de Computaçã
 Você carrega seu histórico do Júpiter, ele mostra o que falta e você monta o plano arrastando
 disciplinas. No fim, baixa o plano em PDF.
 
+> Mais recursos no branch [`extras`](https://github.com/plunkes/continuo-bcc/tree/extras): ênfases com sugestão de semestres e
+> tabela de equivalências do ICMC.
+
 ## Como rodar
 
 Use o site acima, ou rode local. Nos dois casos o histórico é lido dentro do navegador: o
@@ -33,13 +36,24 @@ Abra <http://localhost:8000> no navegador. Para parar, `Ctrl+C`.
 ### Ênfases
 
 Os chips em **Ênfase** mostram os certificados de estudos especiais da grade (IA, Engenharia
-de Software, Ciência de Dados…). Escolher um abre um painel com as disciplinas da ênfase, o
-que já foi feito, o mínimo exigido e o **semestre sugerido** para cada uma que falta.
-**Aplicar sugestão ao plano** encaixa as obrigatórias pendentes, o mínimo da ênfase e, se
-ainda faltarem créditos eletivos, mais optativas — respeitando requisitos, paridade e o
-limite de 20 créditos-aula por semestre, criando semestres se precisar. **Desfazer sugestão**
-volta o plano para como estava. Disciplinas citadas na ênfase mas fora da grade aparecem
-marcadas e não entram na sugestão.
+de Software, Ciência de Dados…). Dá para escolher **várias**. Cada uma abre um painel com as
+disciplinas dela, o que já foi feito e o mínimo exigido; no topo, o painel **Melhor caminho**
+mostra a combinação de disciplinas que fecha todas as ênfases escolhidas e o semestre de cada.
+
+A combinação é otimizada:
+
+- **Menos créditos-aula no total** (desempate: menos créditos-trabalho). Disciplina que conta
+  para mais de uma ênfase entra uma vez só; requisito eletivo que ela puxa entra no custo.
+- **O que você já cursou e o que já pôs no plano conta de graça.** Para preferir uma
+  disciplina, arraste-a para um semestre: a otimização passa a contar com ela.
+- A busca é exata (branch and bound) e para em 250 ms; se parar antes, o painel avisa que é a
+  melhor solução encontrada.
+
+**Aplicar ao plano** encaixa as obrigatórias pendentes, as disciplinas escolhidas e, se ainda
+faltarem créditos eletivos, mais optativas. A distribuição usa o menor número de semestres em
+que tudo cabe e **equilibra a carga** entre eles (respeitando requisitos, paridade, estágio e o
+limite de 20 créditos-aula), sem mexer no que você já tinha posto. **Desfazer** volta o plano.
+Disciplinas citadas na ênfase mas fora da grade aparecem marcadas e nunca são sugeridas.
 
 Ênfase completa ganha **✓** no chip (concluída pelo histórico) ou **◐** (completa contando o
 plano), aparece no medidor **Ênfases** do placar e sai numa tabela própria no PDF.
