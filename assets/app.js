@@ -8,6 +8,17 @@ const G = window.CURRICULO;
 const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
 const ESTAGIO = new Set(G.disciplinasEstagioProjeto);
 
+/* Tabela de equivalências do ICMC: cursar `de` (partes exigidas, cada uma com
+   siglas alternativas) conta como as disciplinas `para` da grade. Regras em que
+   o lado cursado já é todo do BCC (troca entre turmas da própria grade) ficam de fora. */
+const EQUIV = (window.EQUIVALENCIAS?.regras || [])
+  .filter((r) => !r.de.every((parte) => parte.some((c) => GRADE.has(c))));
+
+/** Regras que trocam exatamente uma disciplina da grade: dá para planejar "como" elas. */
+const alternativasDe = (codigo) => EQUIV.filter((r) => r.para.length === 1 && r.para[0] === codigo);
+
+const rotuloRegra = (r) => r.de.map((parte) => parte.join(' ou ')).join(' + ');
+
 const LIMITE_CREDITOS = 20; // acima disso o semestre é marcado como puxado
 const MINIMO_CREDITOS = 12; // abaixo disso o semestre não vale, exceto os dois últimos
 const SEMESTRES_LIVRES = 2; // os dois últimos do plano podem ficar abaixo do mínimo
@@ -62,6 +73,8 @@ const S = {
   soLiberadas: false,
   paridade: true,
   aproveitarLivres: true,
+  equivalidas: new Map(), // sigla da grade → { regra, andamento } cobertas pelo histórico
+  via: new Map(),         // sigla da grade → regra: planejada como disciplina equivalente
 };
 
 /* ------------------------------------------------------- derivação de estado */
@@ -74,6 +87,8 @@ function montarEstado(h) {
     if (CONCLUIDO.has(st)) S.concluidas.add(codigo);
     else if (CURSANDO.has(st)) S.cursando.add(codigo);
   }
+  S.via = new Map();
+  calcularEquivalidas();
 
   const ultimo = h.semestres.reduce(
     (a, b) => (b.ano * 2 + b.sem > a.ano * 2 + a.sem ? b : a),
@@ -87,8 +102,24 @@ function montarEstado(h) {
   }
 }
 
-/** Disciplina já resolvida pelo histórico (concluída ou em andamento). */
-const jaTem = (c) => S.concluidas.has(c) || S.cursando.has(c);
+/** Disciplinas da grade cobertas por equivalência com o que o histórico tem. */
+function calcularEquivalidas() {
+  S.equivalidas = new Map();
+  for (const regra of EQUIV) {
+    const feita = regra.de.every((parte) => parte.some((c) => S.concluidas.has(c)));
+    const andamento = !feita
+      && regra.de.every((parte) => parte.some((c) => S.concluidas.has(c) || S.cursando.has(c)));
+    if (!feita && !andamento) continue;
+    for (const c of regra.para) {
+      if (S.concluidas.has(c) || S.cursando.has(c)) continue;
+      const atual = S.equivalidas.get(c);
+      if (!atual || (atual.andamento && feita)) S.equivalidas.set(c, { regra, andamento });
+    }
+  }
+}
+
+/** Disciplina já resolvida pelo histórico (concluída, em andamento ou por equivalência). */
+const jaTem = (c) => S.concluidas.has(c) || S.cursando.has(c) || S.equivalidas.has(c);
 
 const planejadas = () => new Set(S.plano.flatMap((s) => s.itens));
 
@@ -117,16 +148,23 @@ function contaEletivas() {
   let el = t.el.a;
   let li = t.li.a;
   const fora = [];
+  const fontes = new Set([...S.equivalidas.values()].flatMap(({ regra }) => regra.de.flat()));
   for (const c of [...S.cursando, ...planejadas()]) {
     const d = GRADE.get(c);
-    if (!d) { if (S.cursando.has(c)) fora.push(c); continue; }
+    if (!d) { if (S.cursando.has(c) && !fontes.has(c)) fora.push(c); continue; }
     if (d.t === 'el') el += d.ca;
     else if (d.t === 'li') li += d.ca;
+  }
+  // eletivas cobertas por equivalência entram com os créditos da disciplina da grade
+  let porEquivalencia = 0;
+  for (const c of S.equivalidas.keys()) {
+    const d = GRADE.get(c);
+    if (d?.t === 'el') { el += d.ca; porEquivalencia += d.ca; }
   }
   const aproveitado = S.aproveitarLivres ? Math.min(li, G.creditosLivresAproveitaveis) : 0;
   const total = el + aproveitado;
   return {
-    el, li, aproveitado, total, fora,
+    el, li, aproveitado, total, fora, porEquivalencia,
     exigido: G.creditosEletivosExigidos,
     falta: Math.max(0, G.creditosEletivosExigidos - total),
   };
@@ -192,7 +230,10 @@ function avaliar(codigo, idx) {
   }
 
   const coluna = S.plano[idx];
-  if (coluna && !paridadeOk(d, coluna)) {
+  if (coluna && S.via.has(codigo)) {
+    // a equivalente é de outro curso, com oferta própria: a paridade da grade não vale
+    if (!paridadeOk(d, coluna)) avisos.push('confira a oferta da equivalente no Júpiter');
+  } else if (coluna && !paridadeOk(d, coluna)) {
     const certo = d.p % 2 === 1 ? '1º' : '2º';
     if (S.paridade) bloqueios.push(`costuma ser oferecida no ${certo} semestre; desligue o filtro para planejar assim`);
     else avisos.push(`oferta usual no ${certo} semestre`);
@@ -228,6 +269,7 @@ function cartao(d, origem) {
   const tags = [];
   if (origem === 'rail' && !liberada(d.c)) tags.push(['bloqueio', 'requisito pendente']);
   if (origem === 'rail' && d.p) tags.push(['neutra', `${d.p}º período`]);
+  if (S.via.has(d.c)) tags.push(['equiv', `como ${rotuloRegra(S.via.get(d.c))}`]);
   bloqueios.forEach((b) => tags.push(['bloqueio', b]));
   avisos.forEach((a) => tags.push(['aviso', a]));
 
@@ -247,6 +289,23 @@ function cartao(d, origem) {
   seletor.value = origem;
   seletor.addEventListener('change', () => mover(d.c, seletor.value));
   node.appendChild(seletor);
+
+  const alternativas = alternativasDe(d.c);
+  if (alternativas.length) {
+    const via = document.createElement('select');
+    via.className = 'card-via';
+    via.title = 'Cursar por equivalência (tabela do ICMC)';
+    via.innerHTML = [`<option value="">cursar ${d.c} (BCC)</option>`]
+      .concat(alternativas.map((r, i) => `<option value="${i}">como ${rotuloRegra(r)} · ${r.texto.slice(0, 48)}</option>`))
+      .join('');
+    via.value = S.via.has(d.c) ? String(alternativas.indexOf(S.via.get(d.c))) : '';
+    via.addEventListener('change', () => {
+      if (via.value === '') S.via.delete(d.c);
+      else S.via.set(d.c, alternativas[+via.value]);
+      desenhar();
+    });
+    node.appendChild(via);
+  }
 
   node.addEventListener('dragstart', (ev) => {
     ev.dataTransfer.setData('text/plain', d.c);
@@ -344,6 +403,7 @@ function desenharRail() {
 
   const alvo = el('listas');
   alvo.innerHTML = '';
+  if (S.equivalidas.size) alvo.appendChild(painelEquivalidas());
   for (const [nome, lista] of grupos) {
     const mostradas = lista.filter(visivel).sort((a, b) => (a.p - b.p) || a.c.localeCompare(b.c));
     const bloco = document.createElement('section');
@@ -363,6 +423,28 @@ function desenharRail() {
     bloco.appendChild(corpo);
     alvo.appendChild(bloco);
   }
+}
+
+/** Disciplinas da grade que o histórico cobre por equivalência. */
+function painelEquivalidas() {
+  const bloco = document.createElement('section');
+  bloco.className = 'grupo';
+  const itens = [...S.equivalidas].sort((a, b) => a[0].localeCompare(b[0]));
+  bloco.innerHTML = `
+    <header class="grupo-cab">
+      <h3 class="grupo-nome">Cobertas por equivalência</h3>
+      <span class="grupo-conta">${itens.length}</span>
+    </header>
+    <ul class="equiv-lista">
+      ${itens.map(([c, { regra, andamento }]) => `
+        <li class="equiv-item" title="${regra.texto}">
+          <span class="equiv-sigla">${c}</span>
+          <span class="equiv-nome">${GRADE.get(c)?.n || ''}<small>← ${rotuloRegra(regra)}</small></span>
+          <span class="tag ${andamento ? 'tag-aviso' : 'tag-equiv'}">${andamento ? 'em andamento' : 'equivalência'}</span>
+        </li>`).join('')}
+    </ul>
+    <p class="equiv-nota">Pela tabela de equivalências do ICMC. Peça o aproveitamento no Serviço de Graduação.</p>`;
+  return bloco;
 }
 
 function desenharBoard() {
@@ -502,6 +584,7 @@ function desenharPlacar() {
       nome: 'Optativas eletivas', valor: `${d.eletivas.total}/${d.eletivas.exigido} créd.-aula`,
       atual: d.eletivas.total, alvo: d.eletivas.exigido, ok: !d.eletivas.falta,
       nota: `${d.eletivas.el} eletivos + ${d.eletivas.aproveitado} de ${d.eletivas.li} livres aproveitados`
+        + (d.eletivas.porEquivalencia ? ` · ${d.eletivas.porEquivalencia} por equivalência, sujeitos a aprovação` : '')
         + (d.eletivas.fora.length ? ` · ${d.eletivas.fora.join(', ')} fora da grade, não contabilizada(s)` : ''),
     }),
     medidor({
@@ -627,4 +710,4 @@ ligarEntrada();
 ligarControles();
 
 /* assets/pdf.js consome este estado para gerar o plano em PDF. */
-export { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre };
+export { calcularEquivalidas, diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, rotuloRegra };
