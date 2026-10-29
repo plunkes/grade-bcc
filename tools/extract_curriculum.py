@@ -18,6 +18,12 @@ TIPOS = {
     "Disciplinas Optativas Eletivas": "el",
     "Disciplinas Optativas Livres": "li",
 }
+# Período ideal que mudou depois da grade salva: sigla -> período (a paridade
+# decide se a disciplina é de 1º ou 2º semestre).
+PERIODO_CORRIGIDO = {
+    "SCC0245": 8,  # Processamento Analítico de Dados passou para os semestres pares
+}
+
 KINDS = {
     "requisito fraco": "fraca",
     "indicação de conjunto": "conjunto",
@@ -113,6 +119,10 @@ def main():
             else:
                 atual["r"].append([item])
             pendente_ou = False
+
+    for codigo, periodo in PERIODO_CORRIGIDO.items():
+        if codigo in disciplinas:
+            disciplinas[codigo]["p"] = periodo
 
     obrig = [c for c in ordem if disciplinas[c]["t"] == "ob"]
     dados = {
