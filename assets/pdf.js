@@ -1,7 +1,7 @@
 /* Exportação do plano em PDF, feita no próprio navegador com jsPDF.
    Lista semestre a semestre e fecha com o que ainda fica pendente. */
 
-import { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, rotuloRegra } from './app.js';
+import { perfil, diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, rotuloRegra } from './app.js';
 
 const MARGEM = 42;
 const CINZA = [110, 123, 138];
@@ -29,10 +29,12 @@ function tabelaSemestre(doc, y, semestre) {
   const corpo = semestre.itens.map((c) => {
     const d = GRADE.get(c);
     const via = S.via.get(c);
-    if (via) return [rotuloRegra(via), `${via.texto} — equivale a ${d.c} ${d.n}`, String(d.ca), String(d.ct), `${d.ch} h`];
+    const pf = perfil(c);
+    if (via) return [rotuloRegra(via), `${via.texto} — equivale a ${d.c} ${d.n}`, String(pf.ca), String(pf.ct), '—'];
     return [d.c, d.n, String(d.ca), String(d.ct), `${d.ch} h`];
   });
-  const soma = (campo) => semestre.itens.reduce((t, c) => t + (GRADE.get(c)?.[campo] || 0), 0);
+  // carga horária da equivalente não está na tabela: soma a da disciplina da grade
+  const soma = (campo) => semestre.itens.reduce((t, c) => t + ((campo === 'ch' ? GRADE.get(c) : perfil(c))?.[campo] || 0), 0);
   corpo.push([
     { content: 'Subtotal', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } },
     { content: String(soma('ca')), styles: { fontStyle: 'bold' } },

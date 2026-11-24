@@ -57,9 +57,11 @@ equivalências**. O contínuo usa a tabela de dois jeitos:
 - **Histórico.** Disciplina de outro curso já cursada (ou em andamento) que equivale a uma da
   grade cobre essa disciplina: ela sai de "A cursar" e aparece em **Cobertas por
   equivalência**. Eletivas cobertas assim somam créditos no placar (sujeito a aprovação).
-- **Plano.** Cartões com equivalente ganham o seletor **cursar como**. Planejada como a
-  equivalente, a disciplina deixa de seguir a paridade da grade (a oferta é a do outro curso;
-  confira no Júpiter), o que dá mais folga para montar os semestres.
+- **Plano.** Cartões com equivalente ainda oferecida ganham o seletor **cursar como**.
+  Planejada como a equivalente, a disciplina passa a seguir os dados dela no JupiterWeb:
+  créditos (na carga do semestre e no PDF), período ideal (a paridade do outro curso) e
+  requisitos. Requisito de outro curso vale cumprido por uma disciplina equivalente (ex.:
+  SSC0503 por SCC0201); se não dá para planejá-lo aqui, só aparece um aviso para conferir.
 
 As equivalências usadas saem numa tabela própria no PDF. O aproveitamento ainda precisa ser
 pedido no Serviço de Graduação.
