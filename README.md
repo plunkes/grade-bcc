@@ -86,12 +86,16 @@ python3 tools/extract_curriculum.py
 
 ## Atualizar a tabela de equivalências
 
-Salve a planilha nova como `Tabela de equivalências ATUALIZADA.xls` e rode (precisa de
-[uv](https://docs.astral.sh/uv/) para baixar o `xlrd`):
+Troque a planilha (`.xlsx`) na raiz, ajuste `SRC` em `tools/extract_equivalencias.py` e rode
+(precisa de [uv](https://docs.astral.sh/uv/) para baixar o `openpyxl`):
 
 ```bash
-uv run --with xlrd python3 tools/extract_equivalencias.py
+uv run --with openpyxl python3 tools/extract_equivalencias.py
 ```
+
+Créditos, período ideal e requisitos das disciplinas de outros cursos vêm do JupiterWeb
+(requisitos do BCC quando a disciplina tem, senão os do primeiro curso listado) e ficam em
+cache em `tools/jupiter.json`. Apague o arquivo para buscar tudo de novo.
 
 ## Arquivos
 
@@ -105,6 +109,7 @@ uv run --with xlrd python3 tools/extract_equivalencias.py
 | `assets/equivalencias.js` | tabela de equivalências gerada (não editar à mão) |
 | `tools/extract_curriculum.py` | gerador da grade |
 | `tools/extract_equivalencias.py` | gerador das equivalências |
+| `tools/jupiter.json` | cache do JupiterWeb: créditos e requisitos das equivalentes |
 | `tools/cdp-ui.mjs`, `tools/cdp-eval.mjs`, `tools/teste-parser.html` | conferência no Chrome headless |
 | `vendor/` | pdf.js e jsPDF locais |
 
