@@ -89,6 +89,7 @@ const S = {
   aproveitarLivres: true,
   enfases: new Set(), // ids das ênfases escolhidas
   planoAntes: null, // cópia do plano antes de aplicar a sugestão (desfazer)
+  tempoBusca: 250,  // ms de busca da otimização; passou disso, fica a melhor solução achada
   equivalidas: new Map(), // sigla da grade → { regra, andamento } cobertas pelo histórico
   via: new Map(),         // sigla da grade → regra: planejada como disciplina equivalente
 };
@@ -352,7 +353,6 @@ function liberada(codigo) {
 /* ------------------------------------------------------------- otimização */
 
 const SEMESTRES_EXTRAS = 8; // quantos semestres a sugestão pode criar além do plano
-const TEMPO_BUSCA = 250;    // ms de busca; passou disso, fica a melhor solução achada
 
 const copiaPlano = (plano) => plano.map((s) => ({ ...s, itens: [...s.itens] }));
 
@@ -429,7 +429,7 @@ function otimizarEnfases(enfases) {
 
   let melhor = null;
   let esgotou = false;
-  const prazo = performance.now() + TEMPO_BUSCA;
+  const prazo = performance.now() + S.tempoBusca;
   function busca(escolhidas, proibidas) {
     if (esgotou || performance.now() > prazo) { esgotou = true; return; }
     const tem = fecho(escolhidas, dentro);
@@ -612,7 +612,7 @@ let cacheSugestao = { chave: null, valor: null };
 
 /** Simula a otimização sem mexer no plano. */
 function sugestao(enfases) {
-  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, [...S.concluidas].length]);
+  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, S.tempoBusca, [...S.concluidas].length]);
   if (cacheSugestao.chave === chave) return cacheSugestao.valor;
 
   const otimo = otimizarEnfases(enfases);
@@ -914,7 +914,7 @@ function painelOtimizacao(enfases) {
       ? '<span class="placar-erro">Não dá para fechar essas ênfases com as disciplinas da grade.</span>'
       : sug.escolhidas.length
         ? `${sug.escolhidas.length} disciplina(s), <b>${somaCa(sug.escolhidas)} créditos-aula</b>, fecham
-          ${enfases.length === 1 ? 'a ênfase' : 'todas as ênfases'}: o menor total possível${sug.completa ? '' : ' que a busca achou'},
+          ${enfases.length === 1 ? 'a ênfase' : 'todas as ênfases'}: ${sug.completa ? 'o menor total possível' : `o menor que a busca achou em ${S.tempoBusca} ms (aumente o tempo para garantir o mínimo)`},
           contando o que você já cursou e o que já está no plano.`
         : `<b>Nada a acrescentar:</b> histórico e plano já fecham ${enfases.length === 1 ? 'a ênfase' : 'as ênfases'}.`}</p>
     ${sug.escolhidas.length ? `<ul class="enfase-itens">${sug.escolhidas.map((c) => linha(c,
@@ -928,8 +928,14 @@ function painelOtimizacao(enfases) {
           no máximo <b>${sug.maiorCarga} créd.-aula</b> por semestre, carga equilibrada entre eles.`
         : 'O plano já cobre o que dá para encaixar.'}
         ${sug.naoCoube.length ? `<span class="placar-erro">Não coube: ${sug.naoCoube.join(', ')}.</span>` : ''}</p>
+      <label class="enfase-opcao">Tempo de busca
+        <input type="number" class="tempo-busca" min="50" max="60000" step="50" value="${S.tempoBusca}"> ms</label>
       <div class="enfase-botoes"></div>
     </div>`;
+  bloco.querySelector('.tempo-busca').addEventListener('change', (ev) => {
+    S.tempoBusca = Math.min(60000, Math.max(50, Number(ev.target.value) || 250));
+    desenhar();
+  });
 
   const botoes = bloco.querySelector('.enfase-botoes');
   if (novas) {

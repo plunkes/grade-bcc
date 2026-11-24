@@ -46,8 +46,9 @@ A combinação é otimizada:
   para mais de uma ênfase entra uma vez só; requisito eletivo que ela puxa entra no custo.
 - **O que você já cursou e o que já pôs no plano conta de graça.** Para preferir uma
   disciplina, arraste-a para um semestre: a otimização passa a contar com ela.
-- A busca é exata (branch and bound) e para em 250 ms; se parar antes, o painel avisa que é a
-  melhor solução encontrada.
+- A busca é exata (branch and bound) e para no **tempo de busca** (250 ms por padrão, ajustável
+  no painel até 60 s); se parar antes, o painel avisa que é a melhor solução encontrada. Tempo
+  maior acha soluções melhores com muitas ênfases, mas cada mudança no plano refaz a busca.
 
 **Aplicar ao plano** encaixa as obrigatórias pendentes, as disciplinas escolhidas e, se ainda
 faltarem créditos eletivos, mais optativas. A distribuição usa o menor número de semestres em
