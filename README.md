@@ -49,7 +49,7 @@ A combinação é otimizada:
 - A busca é exata (branch and bound) e para no **tempo de busca** (250 ms por padrão, ajustável
   no painel até 60 s); se parar antes, o painel avisa que é a melhor solução encontrada. Tempo
   maior acha soluções melhores com muitas ênfases, mas cada mudança no plano refaz a busca.
-- **Considerar disciplinas equivalentes** (no painel) deixa a otimização cursar por
+- O botão **Equivalências** (no painel) deixa a otimização cursar por
   equivalência: cada disciplina vai pelo jeito mais barato (a da grade ou uma equivalente
   oferecida) e, ao encaixar, a equivalente entra quando cai num semestre mais leve, já que
   segue a paridade do outro curso. Vale também para as obrigatórias. "Aplicar" marca o

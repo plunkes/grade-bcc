@@ -1016,16 +1016,10 @@ function painelOtimizacao(enfases) {
           no máximo <b>${sug.maiorCarga} créd.-aula</b> por semestre, carga equilibrada entre eles.`
         : 'O plano já cobre o que dá para encaixar.'}
         ${sug.naoCoube.length ? `<span class="placar-erro">Não coube: ${sug.naoCoube.join(', ')}.</span>` : ''}</p>
-      <label class="enfase-opcao"><input type="checkbox" class="usar-equiv"${S.usarEquivalencias ? ' checked' : ''}>
-        Considerar disciplinas equivalentes de outros cursos</label>
       <label class="enfase-opcao">Tempo de busca
         <input type="number" class="tempo-busca" min="50" max="60000" step="50" value="${S.tempoBusca}"> ms</label>
       <div class="enfase-botoes"></div>
     </div>`;
-  bloco.querySelector('.usar-equiv').addEventListener('change', (ev) => {
-    S.usarEquivalencias = ev.target.checked;
-    desenhar();
-  });
   bloco.querySelector('.tempo-busca').addEventListener('change', (ev) => {
     S.tempoBusca = Math.min(60000, Math.max(50, Number(ev.target.value) || 250));
     desenhar();
@@ -1040,6 +1034,17 @@ function painelOtimizacao(enfases) {
     aplicar.addEventListener('click', () => aplicarSugestao(enfases));
     botoes.appendChild(aplicar);
   }
+  const equiv = document.createElement('button');
+  equiv.type = 'button';
+  equiv.className = `btn btn-pequeno ${S.usarEquivalencias ? 'btn-primario' : 'btn-fantasma'}`;
+  equiv.setAttribute('aria-pressed', String(S.usarEquivalencias));
+  equiv.textContent = `Equivalências: ${S.usarEquivalencias ? 'usando' : 'não usar'}`;
+  equiv.title = 'Deixa a otimização cursar disciplinas equivalentes de outros cursos';
+  equiv.addEventListener('click', () => {
+    S.usarEquivalencias = !S.usarEquivalencias;
+    desenhar();
+  });
+  botoes.appendChild(equiv);
   const limpar = document.createElement('button');
   limpar.type = 'button';
   limpar.className = 'btn btn-fantasma btn-pequeno';
