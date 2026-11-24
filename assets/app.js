@@ -127,9 +127,30 @@ function colunaDe(codigo) {
   return S.plano.findIndex((s) => s.itens.includes(codigo));
 }
 
-function pendentes(tipo) {
+/**
+ * Estágio, Projeto de Graduação, Projeto em Intercâmbio e Projeto Empreendedor
+ * se equivalem, I e II inclusive: bastam 2 delas, em qualquer combinação. Contam
+ * como obrigatórias as 2 primeiras entre cursadas, planejadas (na ordem do plano)
+ * e, para preencher, os estágios; o resto conta como eletiva.
+ */
+function estagiosObrigatorios() {
+  const ordem = [
+    ...G.disciplinasEstagioProjeto.filter(jaTem),
+    ...S.plano.flatMap((s) => s.itens).filter((c) => ESTAGIO.has(c)),
+    ...G.disciplinasEstagioProjeto,
+  ];
+  return new Set([...new Set(ordem)].slice(0, G.estagioProjetoExigidas));
+}
+
+/** Tipo efetivo: estágio e projetos dependem do que já foi escolhido. */
+function tipoDe(d) {
+  if (!ESTAGIO.has(d.c)) return d.t;
+  return estagiosObrigatorios().has(d.c) ? 'ob' : 'el';
+}
+
+function pendentes(t) {
   const dentro = planejadas();
-  return G.disciplinas.filter((d) => d.t === tipo && !jaTem(d.c) && !dentro.has(d.c));
+  return G.disciplinas.filter((d) => tipoDe(d) === t && !jaTem(d.c) && !dentro.has(d.c));
 }
 
 /** Créditos-aula já obtidos, somados aos planejados antes da coluna `idx`. */
@@ -152,14 +173,14 @@ function contaEletivas() {
   for (const c of [...S.cursando, ...planejadas()]) {
     const d = GRADE.get(c);
     if (!d) { if (S.cursando.has(c) && !fontes.has(c)) fora.push(c); continue; }
-    if (d.t === 'el') el += d.ca;
+    if (tipoDe(d) === 'el') el += d.ca;
     else if (d.t === 'li') li += d.ca;
   }
   // eletivas cobertas por equivalência entram com os créditos da disciplina da grade
   let porEquivalencia = 0;
   for (const c of S.equivalidas.keys()) {
     const d = GRADE.get(c);
-    if (d?.t === 'el') { el += d.ca; porEquivalencia += d.ca; }
+    if (d && tipoDe(d) === 'el') { el += d.ca; porEquivalencia += d.ca; }
   }
   const aproveitado = S.aproveitarLivres ? Math.min(li, G.creditosLivresAproveitaveis) : 0;
   const total = el + aproveitado;
@@ -172,7 +193,8 @@ function contaEletivas() {
 
 /* ------------------------------------------------------------- requisitos */
 
-const paridadeOk = (d, coluna) => !d.p || (d.p % 2 === 1 ? coluna.sem === 1 : coluna.sem === 2);
+// estágio e projetos (graduação, intercâmbio, empreendedor) podem ser feitos em qualquer semestre
+const paridadeOk = (d, coluna) => !d.p || ESTAGIO.has(d.c) || (d.p % 2 === 1 ? coluna.sem === 1 : coluna.sem === 2);
 
 /**
  * Avalia colocar `codigo` na coluna `idx`.
@@ -269,6 +291,9 @@ function cartao(d, origem) {
   const tags = [];
   if (origem === 'rail' && !liberada(d.c)) tags.push(['bloqueio', 'requisito pendente']);
   if (origem === 'rail' && d.p) tags.push(['neutra', `${d.p}º período`]);
+  if (origem === 'rail' && ESTAGIO.has(d.c)) {
+    tags.push(['neutra', tipoDe(d) === 'ob' ? 'troca com estágio ou projeto' : 'vale no lugar do estágio']);
+  }
   if (S.via.has(d.c)) tags.push(['equiv', `como ${rotuloRegra(S.via.get(d.c))}`]);
   bloqueios.forEach((b) => tags.push(['bloqueio', b]));
   avisos.forEach((a) => tags.push(['aviso', a]));
@@ -528,6 +553,20 @@ function desenharBoard() {
     board.scrollLeft = board.scrollWidth;
   });
   board.appendChild(mais);
+
+  if (S.plano.length > 1) {
+    const ultimo = S.plano[S.plano.length - 1];
+    const menos = document.createElement('button');
+    menos.className = 'coluna coluna-mais coluna-menos';
+    menos.type = 'button';
+    menos.innerHTML = `<span>−</span> Remover ${ultimo.ano}/${ultimo.sem}`;
+    menos.title = 'As disciplinas dele voltam para a lista';
+    menos.addEventListener('click', () => {
+      S.plano.pop();
+      desenhar();
+    });
+    board.appendChild(menos);
+  }
 }
 
 function adicionarSemestre() {
@@ -552,7 +591,7 @@ function diagnostico() {
   const faltaOb = pendentes('ob');
   const eletivas = contaEletivas();
   const h = S.hist;
-  const obTotal = G.disciplinas.filter((d) => d.t === 'ob').length;
+  const obTotal = G.disciplinas.filter((d) => tipoDe(d) === 'ob').length;
   const cobertas = obTotal - faltaOb.length;
   const sobrecarga = S.plano.filter(pesado);
   const abaixoMinimo = S.plano.filter((s, i) => leve(s, i));
