@@ -130,6 +130,8 @@ const S = {
   enfases: new Set(), // ids das ênfases escolhidas
   planoAntes: null, // cópia do plano antes de aplicar a sugestão (desfazer)
   tempoBusca: 250,  // ms de busca da otimização; passou disso, fica a melhor solução achada
+  usarEquivalencias: false, // otimização pode cursar disciplinas por equivalência
+  viaAntes: null,   // "cursar como" antes de aplicar a sugestão (desfazer)
   equivalidas: new Map(), // sigla da grade → { regra, andamento } cobertas pelo histórico
   via: new Map(),         // sigla da grade → regra: planejada como disciplina equivalente
 };
@@ -410,11 +412,12 @@ const conta = (c, dentro) => jaTem(c) || dentro.has(c);
  * plano, nem obrigatória (que vai ser cursada de qualquer jeito). Esses entram
  * junto com ela. null quando o requisito está fora da grade.
  */
-function requisitosQuePuxa(codigo, dentro) {
+function requisitosQuePuxa(codigo, dentro, via) {
   const faltam = [];
-  for (const g of GRADE.get(codigo).r) {
+  const pf = perfil(codigo, via);
+  for (const g of pf.r) {
     const tipo = g[0].k;
-    if (tipo === 'conjunto') continue;
+    if (tipo === 'conjunto' || deFora(pf, g)) continue;
     if (g.some((r) => conta(r.c, dentro) || (GRADE.has(r.c) && tipoDe(GRADE.get(r.c)) === 'ob')
       || (tipo === 'fraca' && fracoOk(r.c)))) continue;
     const alt = g.find((r) => GRADE.has(r.c) && !ESTAGIO.has(r.c));
@@ -425,13 +428,13 @@ function requisitosQuePuxa(codigo, dentro) {
 }
 
 /** As disciplinas e, em cadeia, os requisitos não obrigatórios que elas puxam. */
-function fecho(codigos, dentro) {
+function fecho(codigos, dentro, vias = S.via) {
   const out = new Set();
   const pilha = [...codigos];
   while (pilha.length) {
     const c = pilha.pop();
     if (out.has(c) || conta(c, dentro)) continue;
-    const puxa = requisitosQuePuxa(c, dentro);
+    const puxa = requisitosQuePuxa(c, dentro, vias.get(c));
     if (puxa === null) return null;
     out.add(c);
     pilha.push(...puxa);
@@ -439,8 +442,8 @@ function fecho(codigos, dentro) {
   return out;
 }
 
-const somaCa = (siglas) => [...siglas].reduce((t, c) => t + GRADE.get(c).ca, 0);
-const somaCt = (siglas) => [...siglas].reduce((t, c) => t + GRADE.get(c).ct, 0);
+const somaCa = (siglas, vias = S.via) => [...siglas].reduce((t, c) => t + perfil(c, vias.get(c)).ca, 0);
+const somaCt = (siglas, vias = S.via) => [...siglas].reduce((t, c) => t + perfil(c, vias.get(c)).ct, 0);
 
 /**
  * Menor conjunto de disciplinas que fecha todas as ênfases escolhidas.
@@ -461,22 +464,37 @@ function otimizarEnfases(enfases) {
     itens: g.itens.map((alts) => alts.map((a) => a.c)),
   })));
 
+  // com equivalências, cada disciplina vai pelo jeito mais barato de cursá-la (a da grade ou
+  // uma equivalente oferecida), contando os requisitos que cada jeito puxa.
+  // shortcut: escolhe o jeito disciplina a disciplina; trocar dentro da busca acharia
+  // combinações em que requisitos puxados se compartilham, a um custo bem maior de tempo.
+  const vias = new Map(S.via);
+  const valorDe = (tem, v = vias) => somaCa(tem, v) + somaCt(tem, v) / 1000;
   const custoSozinho = new Map();
   for (const g of grupos) {
     for (const c of g.itens.flat()) {
       if (custoSozinho.has(c) || !GRADE.has(c) || ESTAGIO.has(c) || conta(c, dentro)) continue;
-      const f = fecho([c], dentro);
-      if (f) custoSozinho.set(c, somaCa(f));
+      const jeitos = [undefined, ...(S.usarEquivalencias ? alternativasDe(c) : [])];
+      let melhorJeito = null;
+      for (const via of jeitos) {
+        const v = new Map(vias);
+        if (via) v.set(c, via); else v.delete(c);
+        const f = fecho([c], dentro, v);
+        if (f && (!melhorJeito || valorDe(f, v) < melhorJeito.valor)) melhorJeito = { via, valor: valorDe(f, v), ca: somaCa(f, v) };
+      }
+      if (!melhorJeito) continue;
+      if (melhorJeito.via) vias.set(c, melhorJeito.via);
+      custoSozinho.set(c, melhorJeito.ca);
     }
   }
-  const valor = (tem) => somaCa(tem) + somaCt(tem) / 1000;
+  const valor = (tem) => valorDe(tem);
 
   let melhor = null;
   let esgotou = false;
   const prazo = performance.now() + S.tempoBusca;
   function busca(escolhidas, proibidas) {
     if (esgotou || performance.now() > prazo) { esgotou = true; return; }
-    const tem = fecho(escolhidas, dentro);
+    const tem = fecho(escolhidas, dentro, vias);
     const atual = valor(tem);
     if (melhor && atual >= melhor.valor) return;
 
@@ -490,7 +508,7 @@ function otimizarEnfases(enfases) {
         .map((alts) => alts.filter((c) => custoSozinho.has(c) && !proibidas.has(c)))
         .filter((l) => l.length);
       if (opcoes.length < falta) return; // grupo não fecha mais neste ramo
-      const baratas = opcoes.map((l) => Math.min(...l.map((c) => GRADE.get(c).ca))).sort((a, b) => a - b);
+      const baratas = opcoes.map((l) => Math.min(...l.map((c) => perfil(c, vias.get(c)).ca))).sort((a, b) => a - b);
       limite = Math.max(limite, baratas.slice(0, falta).reduce((t, x) => t + x, 0));
       if (!alvo || opcoes.length - falta < alvo.folga) alvo = { opcoes, folga: opcoes.length - falta };
     }
@@ -507,8 +525,11 @@ function otimizarEnfases(enfases) {
   }
   busca([], new Set());
 
+  const escolhidas = melhor ? [...melhor.tem].sort(porPeriodo) : [];
   return {
-    escolhidas: melhor ? [...melhor.tem].sort(porPeriodo) : [],
+    escolhidas,
+    // equivalências novas que a solução usa (as do plano já estão em S.via)
+    vias: new Map(escolhidas.filter((c) => vias.has(c) && !S.via.has(c)).map((c) => [c, vias.get(c)])),
     possivel: !!melhor,
     completa: !esgotou, // busca terminou: a solução é ótima
   };
@@ -546,7 +567,7 @@ function distribuir(siglas, n) {
     S.plano.push({ ...(u.sem === 1 ? { ano: u.ano, sem: 2 } : { ano: u.ano + 1, sem: 1 }), itens: [] });
   }
   const fila = new Set(siglas);
-  const requisitosNaFila = (c) => GRADE.get(c).r
+  const requisitosNaFila = (c) => perfil(c).r
     .filter((g) => g[0].k !== 'conjunto')
     .flatMap((g) => g.map((r) => r.c))
     .filter((r) => fila.has(r));
@@ -564,14 +585,21 @@ function distribuir(siglas, n) {
   const postas = new Set();
   for (let mudou = true; mudou;) {
     mudou = false;
-    // semestres onde cada uma pode entrar agora; a mais restrita vai primeiro
+    // semestres (e jeitos de cursar) onde cada uma pode entrar agora; a mais restrita vai
+    // primeiro. Com equivalências, a equivalente pode cair em outra paridade e aliviar a carga.
     const lugares = (c) => {
       const ultimo = S.plano.length - alturaDe(c);
       const ok = [];
-      for (let idx = 0; idx <= ultimo; idx++) {
-        if (creditosDoSemestre(S.plano[idx]) + GRADE.get(c).ca > LIMITE_CREDITOS) continue;
-        if (!avaliar(c, idx).bloqueios.length) ok.push(idx);
+      const fixo = S.via.get(c);
+      const jeitos = [fixo, ...(S.usarEquivalencias && !fixo ? alternativasDe(c) : [])];
+      for (const via of jeitos) {
+        if (via) S.via.set(c, via); else S.via.delete(c);
+        for (let idx = 0; idx <= ultimo; idx++) {
+          if (creditosDoSemestre(S.plano[idx]) + perfil(c).ca > LIMITE_CREDITOS) continue;
+          if (!avaliar(c, idx).bloqueios.length) ok.push({ idx, via });
+        }
       }
+      if (fixo) S.via.set(c, fixo); else S.via.delete(c);
       return ok;
     };
     const prontas = [...fila]
@@ -583,7 +611,10 @@ function distribuir(siglas, n) {
     const ok = lugares(proxima.c); // a carga pode ter mudado desde a ordenação
     if (!ok.length) resto.push(proxima.c);
     else {
-      const alvo = ok.reduce((a, b) => (creditosDoSemestre(S.plano[b]) < creditosDoSemestre(S.plano[a]) ? b : a));
+      // empate fica com o primeiro: a disciplina da grade antes das equivalentes
+      const carga = (l) => creditosDoSemestre(S.plano[l.idx]);
+      const { idx: alvo, via } = ok.reduce((a, b) => (carga(b) < carga(a) ? b : a));
+      if (via) S.via.set(proxima.c, via);
       S.plano[alvo].itens.push(proxima.c);
       postas.add(proxima.c);
     }
@@ -616,7 +647,7 @@ function equilibrar(movaveis) {
       const de = colunaDe(c);
       if (de < 0) continue;
       for (let para = 0; para < S.plano.length; para++) {
-        if (para === de || creditosDoSemestre(S.plano[para]) + GRADE.get(c).ca > LIMITE_CREDITOS) continue;
+        if (para === de || creditosDoSemestre(S.plano[para]) + perfil(c).ca > LIMITE_CREDITOS) continue;
         S.plano[de].itens = S.plano[de].itens.filter((x) => x !== c);
         S.plano[para].itens.push(c);
         const v = desequilibrio();
@@ -638,17 +669,20 @@ function equilibrar(movaveis) {
  */
 function encaixarEquilibrado(siglas) {
   const base = copiaPlano(S.plano);
+  const viaBase = new Map(S.via);
   let melhor = null;
   for (let n = base.length; n <= base.length + SEMESTRES_EXTRAS; n++) {
     S.plano = copiaPlano(base);
+    S.via = new Map(viaBase);
     const naoCoube = distribuir(siglas, n);
     equilibrar(siglas);
     // semestres criados que ficaram vazios saem
     while (S.plano.length > base.length && !S.plano[S.plano.length - 1].itens.length) S.plano.pop();
-    if (!melhor || naoCoube.length < melhor.naoCoube.length) melhor = { plano: S.plano, naoCoube };
+    if (!melhor || naoCoube.length < melhor.naoCoube.length) melhor = { plano: S.plano, via: S.via, naoCoube };
     if (!naoCoube.length) break;
   }
   S.plano = melhor.plano;
+  S.via = melhor.via;
   return melhor.naoCoube;
 }
 
@@ -656,22 +690,27 @@ let cacheSugestao = { chave: null, valor: null };
 
 /** Simula a otimização sem mexer no plano. */
 function sugestao(enfases) {
-  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, S.tempoBusca, [...S.concluidas].length]);
+  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, S.tempoBusca, S.usarEquivalencias,
+    [...S.via].map(([c, r]) => c + rotuloRegra(r)), [...S.concluidas].length]);
   if (cacheSugestao.chave === chave) return cacheSugestao.valor;
 
   const otimo = otimizarEnfases(enfases);
   const obrigatorias = pendentes('ob').map((d) => d.c);
   const extras = eletivasParaFechar(otimo.escolhidas, enfases);
   const antes = copiaPlano(S.plano);
+  const viaAntes = new Map(S.via);
   const dentro = planejadas();
+  otimo.vias.forEach((r, c) => S.via.set(c, r));
   const naoCoube = encaixarEquilibrado([...obrigatorias, ...otimo.escolhidas, ...extras]);
   const onde = new Map();
   S.plano.forEach((s) => s.itens.forEach((c) => { if (!dentro.has(c)) onde.set(c, `${s.ano}/${s.sem}`); }));
   const cargas = S.plano.map(creditosDoSemestre);
   const semestres = S.plano.length;
+  const vias = new Map([...S.via].filter(([c]) => !viaAntes.has(c)));
   S.plano = antes;
+  S.via = viaAntes;
 
-  const valor = { ...otimo, obrigatorias, extras, onde, naoCoube, semestres, maiorCarga: Math.max(0, ...cargas) };
+  const valor = { ...otimo, viasOtimo: otimo.vias, vias, obrigatorias, extras, onde, naoCoube, semestres, maiorCarga: Math.max(0, ...cargas) };
   cacheSugestao = { chave, valor };
   return valor;
 }
@@ -679,6 +718,8 @@ function sugestao(enfases) {
 function aplicarSugestao(enfases) {
   const sug = sugestao(enfases);
   S.planoAntes = copiaPlano(S.plano);
+  S.viaAntes = new Map(S.via);
+  sug.viasOtimo.forEach((r, c) => S.via.set(c, r)); // as do encaixe, ele escolhe de novo
   const naoCoube = encaixarEquilibrado([...sug.obrigatorias, ...sug.escolhidas, ...sug.extras]);
   desenhar();
   if (naoCoube.length) recusar(naoCoube.join(', '), 'não couberam na sugestão; encaixe à mão');
@@ -687,6 +728,7 @@ function aplicarSugestao(enfases) {
 function desfazerSugestao() {
   if (!S.planoAntes) return;
   S.plano = S.planoAntes;
+  S.via = S.viaAntes;
   S.planoAntes = null;
   desenhar();
 }
@@ -943,7 +985,7 @@ function painelOtimizacao(enfases) {
   const linha = (c, extra) => `
     <li class="enfase-item">
       <span class="enfase-sigla">${c}</span>
-      <span class="enfase-nome">${GRADE.get(c).n}<small>${extra}</small></span>
+      <span class="enfase-nome">${GRADE.get(c).n}<small>${sug.vias.has(c) ? `como ${rotuloRegra(sug.vias.get(c))} · ` : ''}${extra}</small></span>
       ${sug.onde.has(c) ? `<span class="tag tag-sugestao">→ ${sug.onde.get(c)}</span>` : '<span class="tag tag-bloqueio">não coube</span>'}
     </li>`;
 
@@ -952,12 +994,12 @@ function painelOtimizacao(enfases) {
   bloco.innerHTML = `
     <header class="grupo-cab">
       <h3 class="grupo-nome">Melhor caminho · ${enfases.length} ênfase${enfases.length === 1 ? '' : 's'}</h3>
-      <span class="grupo-conta">${somaCa(sug.escolhidas)} créd.</span>
+      <span class="grupo-conta">${somaCa(sug.escolhidas, new Map([...S.via, ...sug.vias]))} créd.</span>
     </header>
     <p class="enfase-resumo">${!sug.possivel
       ? '<span class="placar-erro">Não dá para fechar essas ênfases com as disciplinas da grade.</span>'
       : sug.escolhidas.length
-        ? `${sug.escolhidas.length} disciplina(s), <b>${somaCa(sug.escolhidas)} créditos-aula</b>, fecham
+        ? `${sug.escolhidas.length} disciplina(s), <b>${somaCa(sug.escolhidas, new Map([...S.via, ...sug.vias]))} créditos-aula</b>, fecham
           ${enfases.length === 1 ? 'a ênfase' : 'todas as ênfases'}: ${sug.completa ? 'o menor total possível' : `o menor que a busca achou em ${S.tempoBusca} ms (aumente o tempo para garantir o mínimo)`},
           contando o que você já cursou e o que já está no plano.`
         : `<b>Nada a acrescentar:</b> histórico e plano já fecham ${enfases.length === 1 ? 'a ênfase' : 'as ênfases'}.`}</p>
@@ -966,16 +1008,24 @@ function painelOtimizacao(enfases) {
     ${sug.extras.length ? `
       <p class="enfase-regra">Eletivas para fechar ${G.creditosEletivosExigidos} créditos</p>
       <ul class="enfase-itens">${sug.extras.map((c) => linha(c, marcas.has(c) ? marcas.get(c).join(' · ') : 'eletiva')).join('')}</ul>` : ''}
+    ${sug.vias.size ? `<p class="enfase-resumo">Por equivalência: ${[...sug.vias]
+      .map(([c, r]) => `<b>${c}</b> como ${rotuloRegra(r)}${sug.onde.has(c) ? ` (${sug.onde.get(c)})` : ''}`).join(', ')}.</p>` : ''}
     <div class="enfase-sugestao">
       <p class="enfase-resumo">${novas
         ? `Com ${sug.obrigatorias.length} obrigatória(s) pendente(s): ${sug.semestres} semestres,
           no máximo <b>${sug.maiorCarga} créd.-aula</b> por semestre, carga equilibrada entre eles.`
         : 'O plano já cobre o que dá para encaixar.'}
         ${sug.naoCoube.length ? `<span class="placar-erro">Não coube: ${sug.naoCoube.join(', ')}.</span>` : ''}</p>
+      <label class="enfase-opcao"><input type="checkbox" class="usar-equiv"${S.usarEquivalencias ? ' checked' : ''}>
+        Considerar disciplinas equivalentes de outros cursos</label>
       <label class="enfase-opcao">Tempo de busca
         <input type="number" class="tempo-busca" min="50" max="60000" step="50" value="${S.tempoBusca}"> ms</label>
       <div class="enfase-botoes"></div>
     </div>`;
+  bloco.querySelector('.usar-equiv').addEventListener('change', (ev) => {
+    S.usarEquivalencias = ev.target.checked;
+    desenhar();
+  });
   bloco.querySelector('.tempo-busca').addEventListener('change', (ev) => {
     S.tempoBusca = Math.min(60000, Math.max(50, Number(ev.target.value) || 250));
     desenhar();
