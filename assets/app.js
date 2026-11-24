@@ -28,8 +28,27 @@ const ENFASE_CURTA = {
 const EQUIV = (window.EQUIVALENCIAS?.regras || [])
   .filter((r) => !r.de.every((parte) => parte.some((c) => GRADE.has(c))));
 
-/** Regras que trocam exatamente uma disciplina da grade: dá para planejar "como" elas. */
-const alternativasDe = (codigo) => EQUIV.filter((r) => r.para.length === 1 && r.para[0] === codigo);
+/** Créditos, período ideal e requisitos das disciplinas de outros cursos (JupiterWeb). */
+const EXTERNAS = window.EQUIVALENCIAS?.externas || {};
+
+/** Equivalências um-para-um de qualquer curso, nos dois sentidos: cumprem requisitos de fora. */
+const PARES = new Map();
+for (const [a, b] of window.EQUIVALENCIAS?.pares || []) {
+  if (!PARES.has(a)) PARES.set(a, new Set());
+  if (!PARES.has(b)) PARES.set(b, new Set());
+  PARES.get(a).add(b);
+  PARES.get(b).add(a);
+}
+
+/** Disciplina cursada em cada parte da regra: a primeira que o Júpiter ainda oferece. */
+const cursadasDaRegra = (r) => r.de.map((parte) => parte.find((c) => EXTERNAS[c] || GRADE.has(c)) || parte[0]);
+
+/**
+ * Regras que trocam exatamente uma disciplina da grade e cujas disciplinas ainda
+ * existem no Júpiter: dá para planejar "como" elas.
+ */
+const alternativasDe = (codigo) => EQUIV.filter((r) => r.para.length === 1 && r.para[0] === codigo
+  && r.de.every((parte) => parte.some((c) => EXTERNAS[c] || GRADE.has(c))));
 
 const rotuloRegra = (r) => r.de.map((parte) => parte.join(' ou ')).join(' + ');
 
@@ -51,7 +70,28 @@ const instituto = (codigo) => INSTITUTOS.find((i) => i.teste(codigo)).id;
 const el = (id) => document.getElementById(id);
 
 /** Créditos-aula de um semestre do plano. */
-const creditosDoSemestre = (s) => s.itens.reduce((t, c) => t + (GRADE.get(c)?.ca || 0), 0);
+const creditosDoSemestre = (s) => s.itens.reduce((t, c) => t + (GRADE.has(c) ? perfil(c).ca : 0), 0);
+
+/**
+ * Como a disciplina vai ser cursada: a da grade ou, com "cursar como", as
+ * equivalentes, com créditos, período ideal e requisitos delas. Requisito de
+ * fora vale também cumprido por uma equivalente um-para-um.
+ */
+function perfil(codigo, via = S.via.get(codigo)) {
+  if (!via) return GRADE.get(codigo);
+  const cursadas = cursadasDaRegra(via).map((c) => EXTERNAS[c] || GRADE.get(c) || { ca: 0, ct: 0, p: 0, r: [] });
+  return {
+    c: codigo,
+    via,
+    ca: cursadas.reduce((t, x) => t + x.ca, 0),
+    ct: cursadas.reduce((t, x) => t + x.ct, 0),
+    p: cursadas.find((x) => x.p)?.p || 0,
+    r: cursadas.flatMap((x) => x.r).map((g) => g.flatMap((r) => [r, ...[...(PARES.get(r.c) || [])].map((c) => ({ c, k: r.k }))])),
+  };
+}
+
+/** Requisito de outro curso que não dá para planejar aqui: só avisa, quem confere é o Júpiter. */
+const deFora = (pf, grupo) => pf.via && !grupo.some((r) => GRADE.has(r.c));
 
 /** Semestre puxado: passa do limite de créditos-aula. */
 export const pesado = (s) => creditosDoSemestre(s) > LIMITE_CREDITOS;
@@ -281,6 +321,7 @@ function avaliar(codigo, idx) {
   const bloqueios = [];
   const avisos = [];
   if (!d) return { bloqueios, avisos };
+  const pf = perfil(codigo);
 
   const antes = new Set();   // resolvido antes da coluna idx
   const junto = new Set();   // resolvido na própria coluna
@@ -291,12 +332,13 @@ function avaliar(codigo, idx) {
     else if (i === idx) s.itens.forEach((c) => junto.add(c));
   });
 
-  for (const grupo of d.r) {
+  for (const grupo of pf.r) {
     const tipo = grupo[0].k;
     const nomes = grupo.map((r) => r.c).join(' ou ');
 
     if (tipo === 'forte') {
       if (grupo.some((r) => antes.has(r.c))) continue;
+      if (deFora(pf, grupo)) { avisos.push(`a equivalente exige ${nomes}: confira no Júpiter`); continue; }
       bloqueios.push(`exige ${nomes} concluída antes`);
       continue;
     }
@@ -304,6 +346,7 @@ function avaliar(codigo, idx) {
     if (tipo === 'fraca') {
       // cumprida ou planejada antes libera; senão vale a nota >= 3,0
       if (grupo.some((r) => antes.has(r.c) || notaDe(r.c) >= NOTA_REQUISITO_FRACO)) continue;
+      if (deFora(pf, grupo)) { avisos.push(`a equivalente pede ${nomes} (fraco): confira no Júpiter`); continue; }
       const notas = grupo
         .map((r) => (notaDe(r.c) === null ? null : `${r.c} ficou com ${notaDe(r.c).toFixed(1).replace('.', ',')}`))
         .filter(Boolean)
@@ -328,11 +371,11 @@ function avaliar(codigo, idx) {
   }
 
   const coluna = S.plano[idx];
-  if (coluna && S.via.has(codigo)) {
-    // a equivalente é de outro curso, com oferta própria: a paridade da grade não vale
-    if (!paridadeOk(d, coluna)) avisos.push('confira a oferta da equivalente no Júpiter');
-  } else if (coluna && !paridadeOk(d, coluna)) {
-    const certo = d.p % 2 === 1 ? '1º' : '2º';
+  if (coluna && pf.via && !pf.p) {
+    // sem período ideal no Júpiter (optativa no curso dela): não dá para saber a oferta
+    avisos.push('confira a oferta da equivalente no Júpiter');
+  } else if (coluna && !paridadeOk(pf, coluna)) {
+    const certo = pf.p % 2 === 1 ? '1º' : '2º';
     if (S.paridade) bloqueios.push(`costuma ser oferecida no ${certo} semestre; desligue o filtro para planejar assim`);
     else avisos.push(`oferta usual no ${certo} semestre`);
   }
@@ -341,9 +384,10 @@ function avaliar(codigo, idx) {
 
 /** Sem requisito pendente considerando só o histórico (forte e fraco). */
 function liberada(codigo) {
-  const d = GRADE.get(codigo);
-  if (!d) return true;
-  return d.r.every((g) => {
+  if (!GRADE.has(codigo)) return true;
+  const pf = perfil(codigo);
+  return pf.r.every((g) => {
+    if (deFora(pf, g)) return true;
     if (g[0].k === 'forte') return g.some((r) => jaTem(r.c));
     if (g[0].k === 'fraca') return g.some((r) => fracoOk(r.c));
     return true;
@@ -675,7 +719,7 @@ function cartao(d, origem) {
 
   node.innerHTML = `
     <span class="card-sigla">${d.c}</span>
-    <span class="card-cred">${d.ca}+${d.ct} · ${d.ch}h</span>
+    <span class="card-cred">${perfil(d.c).ca}+${perfil(d.c).ct}${S.via.has(d.c) ? "" : ` · ${d.ch}h`}</span>
     <span class="card-nome">${d.n}</span>
     <span class="card-tags">${tags.map(([k, t]) => `<span class="tag tag-${k}">${t}</span>`).join('')}</span>
   `;
@@ -1298,4 +1342,4 @@ ligarEntrada();
 ligarControles();
 
 /* assets/pdf.js consome este estado para gerar o plano em PDF. */
-export { calcularEquivalidas, diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, rotuloRegra };
+export { perfil, calcularEquivalidas, diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, rotuloRegra };

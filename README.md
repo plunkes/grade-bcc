@@ -83,9 +83,11 @@ equivalências**. O contínuo usa a tabela de dois jeitos:
 - **Histórico.** Disciplina de outro curso já cursada (ou em andamento) que equivale a uma da
   grade cobre essa disciplina: ela sai de "A cursar" e aparece em **Cobertas por
   equivalência**. Eletivas cobertas assim somam créditos no placar (sujeito a aprovação).
-- **Plano.** Cartões com equivalente ganham o seletor **cursar como**. Planejada como a
-  equivalente, a disciplina deixa de seguir a paridade da grade (a oferta é a do outro curso;
-  confira no Júpiter), o que dá mais folga para montar os semestres.
+- **Plano.** Cartões com equivalente ainda oferecida ganham o seletor **cursar como**.
+  Planejada como a equivalente, a disciplina passa a seguir os dados dela no JupiterWeb:
+  créditos (na carga do semestre e no PDF), período ideal (a paridade do outro curso) e
+  requisitos. Requisito de outro curso vale cumprido por uma disciplina equivalente (ex.:
+  SSC0503 por SCC0201); se não dá para planejá-lo aqui, só aparece um aviso para conferir.
 
 As equivalências usadas saem numa tabela própria no PDF. O aproveitamento ainda precisa ser
 pedido no Serviço de Graduação.
@@ -112,12 +114,16 @@ python3 tools/extract_curriculum.py
 
 ## Atualizar a tabela de equivalências
 
-Salve a planilha nova como `Tabela de equivalências ATUALIZADA.xls` e rode (precisa de
-[uv](https://docs.astral.sh/uv/) para baixar o `xlrd`):
+Troque a planilha (`.xlsx`) na raiz, ajuste `SRC` em `tools/extract_equivalencias.py` e rode
+(precisa de [uv](https://docs.astral.sh/uv/) para baixar o `openpyxl`):
 
 ```bash
-uv run --with xlrd python3 tools/extract_equivalencias.py
+uv run --with openpyxl python3 tools/extract_equivalencias.py
 ```
+
+Créditos, período ideal e requisitos das disciplinas de outros cursos vêm do JupiterWeb
+(requisitos do BCC quando a disciplina tem, senão os do primeiro curso listado) e ficam em
+cache em `tools/jupiter.json`. Apague o arquivo para buscar tudo de novo.
 
 ## Arquivos
 
@@ -131,6 +137,7 @@ uv run --with xlrd python3 tools/extract_equivalencias.py
 | `assets/equivalencias.js` | tabela de equivalências gerada (não editar à mão) |
 | `tools/extract_curriculum.py` | gerador da grade |
 | `tools/extract_equivalencias.py` | gerador das equivalências |
+| `tools/jupiter.json` | cache do JupiterWeb: créditos e requisitos das equivalentes |
 | `tools/cdp-ui.mjs`, `tools/cdp-eval.mjs`, `tools/teste-parser.html` | conferência no Chrome headless |
 | `vendor/` | pdf.js e jsPDF locais |
 
