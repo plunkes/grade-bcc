@@ -17,10 +17,13 @@ PDF não é enviado para lugar nenhum (a página do GitHub Pages serve só arqui
 Para rodar local, precisa só de Python (já vem no Linux e no macOS). Na pasta do projeto:
 
 ```bash
-python3 -m http.server 8000
+python3 tools/servir.py
 ```
 
-Abra <http://localhost:8000> no navegador. Para parar, `Ctrl+C`.
+Abra <http://localhost:8000> no navegador. Para parar, `Ctrl+C`. Esse servidor diz ao navegador
+para não guardar cache, então depois de um `git pull` ou de trocar de branch basta recarregar.
+(Com `python3 -m http.server` o navegador pode misturar arquivos velhos e novos; se a página
+quebrar, recarregue com `Ctrl+Shift+R`.)
 
 > O servidor é local e serve apenas os arquivos desta pasta. Ele é necessário porque o
 > navegador bloqueia módulos e workers abertos direto por `file://` — nada é enviado para
@@ -142,6 +145,7 @@ cache em `tools/jupiter.json`. Apague o arquivo para buscar tudo de novo.
 | `assets/pdf.js` | geração do plano em PDF |
 | `assets/curriculum.js` | grade curricular gerada (não editar à mão) |
 | `assets/equivalencias.js` | tabela de equivalências gerada (não editar à mão) |
+| `tools/servir.py` | servidor local sem cache |
 | `tools/extract_curriculum.py` | gerador da grade |
 | `tools/extract_equivalencias.py` | gerador das equivalências |
 | `tools/jupiter.json` | cache do JupiterWeb: créditos e requisitos das equivalentes |
