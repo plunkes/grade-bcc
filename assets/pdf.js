@@ -1,7 +1,7 @@
 /* Exportação do plano em PDF, feita no próprio navegador com jsPDF.
    Lista semestre a semestre e fecha com o que ainda fica pendente. */
 
-import { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre } from './app.js';
+import { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, pesado } from './app.js';
 
 const MARGEM = 42;
 const CINZA = [110, 123, 138];
@@ -38,7 +38,7 @@ function tabelaSemestre(doc, y, semestre) {
     { content: `${soma('ch')} h`, styles: { fontStyle: 'bold' } },
   ]);
 
-  const puxado = creditosDoSemestre(semestre) > LIMITE_CREDITOS;
+  const puxado = pesado(semestre);
   const titulo = `${semestre.ano} · ${semestre.sem}º semestre${puxado ? '  —  SEMESTRE PUXADO' : ''}`;
 
   doc.autoTable({
@@ -184,7 +184,7 @@ export function gerarPdf() {
   if (y > limite - 90) { doc.addPage(); y = MARGEM + 16; }
   y = tabelaEnfases(doc, y, d);
 
-  const puxados = cheios.filter((s) => creditosDoSemestre(s) > LIMITE_CREDITOS);
+  const puxados = cheios.filter(pesado);
   if (puxados.length) {
     doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(...ALERTA);
     const quais = puxados.map((s) => `${s.ano}/${s.sem}`).join(', ');
