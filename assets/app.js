@@ -1,4 +1,4 @@
-/* contínuo — planejador de curso BCC/ICMC.
+/* grade — planejador de curso BCC/ICMC.
    Roda inteiro no navegador: o histórico nunca sai da máquina e nada é salvo
    (sem localStorage, sem rede). Recarregar a página apaga tudo. */
 
@@ -8,7 +8,6 @@ const G = window.CURRICULO;
 const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
 const ESTAGIO = new Set(G.disciplinasEstagioProjeto);
 
-const LIMITE_CREDITOS = 20; // acima disso o semestre é marcado como puxado
 const MINIMO_CREDITOS = 12; // abaixo disso o semestre não vale, exceto os dois últimos
 const SEMESTRES_LIVRES = 2; // os dois últimos do plano podem ficar abaixo do mínimo
 const NOTA_REQUISITO_FRACO = 3; // requisito fraco só libera com nota >= 3,0
@@ -28,10 +27,10 @@ const el = (id) => document.getElementById(id);
 /** Créditos-aula de um semestre do plano. */
 const creditosDoSemestre = (s) => s.itens.reduce((t, c) => t + (GRADE.get(c)?.ca || 0), 0);
 
-/** Semestre puxado: passa do limite de créditos-aula. */
-/** Teto de créditos-aula por semestre; desligado, nenhum semestre é puxado. */
-const limiteCreditos = () => (S.limite ? LIMITE_CREDITOS : Infinity);
+/** Teto de créditos-aula por semestre (Configurações). */
+const limiteCreditos = () => S.limiteCreditos;
 
+/** Semestre puxado: passa do limite de créditos-aula. */
 export const pesado = (s) => creditosDoSemestre(s) > limiteCreditos();
 
 export const avisoPesado = (s) =>
@@ -64,7 +63,8 @@ const S = {
   filtroInst: null,
   soLiberadas: false,
   paridade: true,
-  limite: true,     // marca semestre acima de LIMITE_CREDITOS como puxado
+  limiteCreditos: 20, // acima disso o semestre é puxado e a sugestão não passa
+  passarLimite: true, // arrastar à mão pode passar do limite (fica marcado como puxado)
   aproveitarLivres: true,
 };
 
@@ -218,6 +218,10 @@ function avaliar(codigo, idx) {
   }
 
   const coluna = S.plano[idx];
+  if (coluna && !S.passarLimite && !coluna.itens.includes(codigo)
+    && creditosDoSemestre(coluna) + d.ca > limiteCreditos()) {
+    bloqueios.push(`passa do limite de ${limiteCreditos()} créditos-aula do semestre`);
+  }
   if (coluna && !paridadeOk(d, coluna)) {
     const certo = d.p % 2 === 1 ? '1º' : '2º';
     if (S.paridade) bloqueios.push(`costuma ser oferecida no ${certo} semestre; desligue o filtro para planejar assim`);
@@ -581,7 +585,7 @@ function desenharPlacar() {
   if (d.sobrecarga.length) {
     const quais = d.sobrecarga.map((s) => `${s.ano}/${s.sem}`).join(', ');
     estado.innerHTML += ` <span class="placar-puxado">${quais} ${d.sobrecarga.length === 1 ? 'passa' : 'passam'}`
-      + ` de ${LIMITE_CREDITOS} créditos-aula: semestre${d.sobrecarga.length === 1 ? '' : 's'} mais puxado${d.sobrecarga.length === 1 ? '' : 's'}.</span>`;
+      + ` de ${limiteCreditos()} créditos-aula: semestre${d.sobrecarga.length === 1 ? '' : 's'} mais puxado${d.sobrecarga.length === 1 ? '' : 's'}.</span>`;
   }
 
   el('btn-pdf').hidden = !d.pronto;
@@ -601,8 +605,6 @@ async function receber(arquivo) {
     el('marca-curso').textContent = `${h.aluno || 'Plano de curso'} · ${h.curso || G.curso}`;
     el('tela-entrada').hidden = true;
     el('tela-app').hidden = false;
-    el('box-paridade').hidden = false;
-    el('box-limite').hidden = false;
     el('btn-recomecar').hidden = false;
     desenhar();
   } catch (e) {
@@ -660,14 +662,17 @@ function ligarControles() {
     filtros.appendChild(chip);
   });
 
-  el('chk-paridade').addEventListener('change', (ev) => {
-    S.paridade = ev.target.checked;
-    desenhar();
+  el('btn-config').addEventListener('click', () => el('config').showModal());
+  const ajustar = (id, campo, ler) => el(id).addEventListener('change', (ev) => {
+    S[campo] = ler(ev.target);
+    if (S.hist) desenhar();
   });
-  el('chk-limite').addEventListener('change', (ev) => {
-    S.limite = ev.target.checked;
-    desenhar();
+  ajustar('cfg-limite', 'limiteCreditos', (i) => {
+    i.value = Math.min(99, Math.max(1, Math.round(Number(i.value)) || 20));
+    return Number(i.value);
   });
+  ajustar('cfg-passar', 'passarLimite', (i) => i.checked);
+  ajustar('cfg-paridade', 'paridade', (i) => i.checked);
   el('btn-recomecar').addEventListener('click', () => location.reload());
 }
 
@@ -675,4 +680,4 @@ ligarEntrada();
 ligarControles();
 
 /* assets/pdf.js consome este estado para gerar o plano em PDF. */
-export { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre };
+export { diagnostico, S, GRADE, G, limiteCreditos, creditosDoSemestre };
