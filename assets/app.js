@@ -94,7 +94,10 @@ function perfil(codigo, via = S.via.get(codigo)) {
 const deFora = (pf, grupo) => pf.via && !grupo.some((r) => GRADE.has(r.c));
 
 /** Semestre puxado: passa do limite de créditos-aula. */
-export const pesado = (s) => creditosDoSemestre(s) > LIMITE_CREDITOS;
+/** Teto de créditos-aula por semestre; desligado, nenhum semestre é puxado. */
+const limiteCreditos = () => (S.limite ? LIMITE_CREDITOS : Infinity);
+
+export const pesado = (s) => creditosDoSemestre(s) > limiteCreditos();
 
 export const avisoPesado = (s) =>
   `Este semestre tem ${creditosDoSemestre(s)} créditos-aula e vai ser mais puxado. `
@@ -126,6 +129,7 @@ const S = {
   filtroInst: null,
   soLiberadas: false,
   paridade: true,
+  limite: true,     // marca semestre acima de LIMITE_CREDITOS como puxado
   aproveitarLivres: true,
   enfases: new Set(), // ids das ênfases escolhidas
   planoAntes: null, // cópia do plano antes de aplicar a sugestão (desfazer)
@@ -595,7 +599,7 @@ function distribuir(siglas, n) {
       for (const via of jeitos) {
         if (via) S.via.set(c, via); else S.via.delete(c);
         for (let idx = 0; idx <= ultimo; idx++) {
-          if (creditosDoSemestre(S.plano[idx]) + perfil(c).ca > LIMITE_CREDITOS) continue;
+          if (creditosDoSemestre(S.plano[idx]) + perfil(c).ca > limiteCreditos()) continue;
           if (!avaliar(c, idx).bloqueios.length) ok.push({ idx, via });
         }
       }
@@ -628,7 +632,7 @@ function distribuir(siglas, n) {
 function desequilibrio() {
   return S.plano.reduce((t, s, i) => {
     const ca = creditosDoSemestre(s);
-    return t + ca * ca + (leve(s, i) ? 1000 : 0) + (ca > LIMITE_CREDITOS ? 1000 : 0);
+    return t + ca * ca + (leve(s, i) ? 1000 : 0) + (ca > limiteCreditos() ? 1000 : 0);
   }, 0);
 }
 
@@ -647,7 +651,7 @@ function equilibrar(movaveis) {
       const de = colunaDe(c);
       if (de < 0) continue;
       for (let para = 0; para < S.plano.length; para++) {
-        if (para === de || creditosDoSemestre(S.plano[para]) + perfil(c).ca > LIMITE_CREDITOS) continue;
+        if (para === de || creditosDoSemestre(S.plano[para]) + perfil(c).ca > limiteCreditos()) continue;
         S.plano[de].itens = S.plano[de].itens.filter((x) => x !== c);
         S.plano[para].itens.push(c);
         const v = desequilibrio();
@@ -690,7 +694,7 @@ let cacheSugestao = { chave: null, valor: null };
 
 /** Simula a otimização sem mexer no plano. */
 function sugestao(enfases) {
-  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, S.tempoBusca, S.usarEquivalencias,
+  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, S.limite, S.tempoBusca, S.usarEquivalencias,
     [...S.via].map(([c, r]) => c + rotuloRegra(r)), [...S.concluidas].length]);
   if (cacheSugestao.chave === chave) return cacheSugestao.valor;
 
@@ -1301,6 +1305,7 @@ async function receber(arquivo) {
     el('tela-entrada').hidden = true;
     el('tela-app').hidden = false;
     el('box-paridade').hidden = false;
+    el('box-limite').hidden = false;
     el('btn-recomecar').hidden = false;
     desenhar();
   } catch (e) {
@@ -1388,6 +1393,10 @@ function ligarControles() {
 
   el('chk-paridade').addEventListener('change', (ev) => {
     S.paridade = ev.target.checked;
+    desenhar();
+  });
+  el('chk-limite').addEventListener('change', (ev) => {
+    S.limite = ev.target.checked;
     desenhar();
   });
   el('btn-recomecar').addEventListener('click', () => location.reload());
