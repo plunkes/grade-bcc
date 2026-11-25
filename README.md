@@ -45,7 +45,7 @@ Regras aplicadas ao arrastar:
   equivalem, I e II inclusive: bastam **2 delas, em qualquer combinação** (ex.: Intercâmbio I + Estágio I).
   As 2 primeiras cursadas ou planejadas contam como obrigatórias; as demais, como eletivas.
 - **+** no fim do quadro planeja mais um semestre; **−** remove o último (as disciplinas dele voltam para a lista).
-- Semestre acima de 20 créditos-aula é marcado como **puxado**, na tela e no PDF. É só aviso: o encaixe continua valendo.
+- Semestre acima de 20 créditos-aula é marcado como **puxado**, na tela e no PDF. É só aviso: o encaixe continua valendo. Desligue "Limite de 20 créditos" para tirar o teto de vez.
 - Semestre com menos de **12 créditos-aula** invalida o plano e segura o PDF. Só os **2 últimos** semestres do plano podem ficar abaixo disso.
 - AAC e extensão são lidos do histórico: entram no placar e, se faltarem, saem listados no PDF.
 

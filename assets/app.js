@@ -29,7 +29,10 @@ const el = (id) => document.getElementById(id);
 const creditosDoSemestre = (s) => s.itens.reduce((t, c) => t + (GRADE.get(c)?.ca || 0), 0);
 
 /** Semestre puxado: passa do limite de créditos-aula. */
-export const pesado = (s) => creditosDoSemestre(s) > LIMITE_CREDITOS;
+/** Teto de créditos-aula por semestre; desligado, nenhum semestre é puxado. */
+const limiteCreditos = () => (S.limite ? LIMITE_CREDITOS : Infinity);
+
+export const pesado = (s) => creditosDoSemestre(s) > limiteCreditos();
 
 export const avisoPesado = (s) =>
   `Este semestre tem ${creditosDoSemestre(s)} créditos-aula e vai ser mais puxado. `
@@ -61,6 +64,7 @@ const S = {
   filtroInst: null,
   soLiberadas: false,
   paridade: true,
+  limite: true,     // marca semestre acima de LIMITE_CREDITOS como puxado
   aproveitarLivres: true,
 };
 
@@ -598,6 +602,7 @@ async function receber(arquivo) {
     el('tela-entrada').hidden = true;
     el('tela-app').hidden = false;
     el('box-paridade').hidden = false;
+    el('box-limite').hidden = false;
     el('btn-recomecar').hidden = false;
     desenhar();
   } catch (e) {
@@ -657,6 +662,10 @@ function ligarControles() {
 
   el('chk-paridade').addEventListener('change', (ev) => {
     S.paridade = ev.target.checked;
+    desenhar();
+  });
+  el('chk-limite').addEventListener('change', (ev) => {
+    S.limite = ev.target.checked;
     desenhar();
   });
   el('btn-recomecar').addEventListener('click', () => location.reload());
