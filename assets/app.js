@@ -2,7 +2,7 @@
    Roda inteiro no navegador: o histórico nunca sai da máquina e nada é salvo
    (sem localStorage, sem rede). Recarregar a página apaga tudo. */
 
-import { lerHistorico, CONCLUIDO, CURSANDO } from './historico.js';
+import { lerHistorico, CONCLUIDO, CURSANDO } from './historico.js?v=2';
 
 const G = window.CURRICULO;
 const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
