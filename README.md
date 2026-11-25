@@ -1,12 +1,12 @@
 # contínuo
 
-**Site: <https://plunkes.github.io/continuo-bcc/>**
+**Site: <https://plunkes.github.io/grade-bcc/>**
 
 Planejador dos semestres que faltam no **Bacharelado em Ciências de Computação (ICMC/USP)**.
 Você carrega seu histórico do Júpiter, ele mostra o que falta e você monta o plano arrastando
 disciplinas. No fim, baixa o plano em PDF.
 
-> Mais recursos no branch [`extras`](https://github.com/plunkes/continuo-bcc/tree/extras): ênfases com sugestão de semestres e
+> Mais recursos no branch [`extras`](https://github.com/plunkes/grade-bcc/tree/extras): ênfases com sugestão de semestres e
 > tabela de equivalências do ICMC.
 
 ## Como rodar
