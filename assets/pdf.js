@@ -1,7 +1,7 @@
 /* Exportação do plano em PDF, feita no próprio navegador com jsPDF.
    Lista semestre a semestre e fecha com o que ainda fica pendente. */
 
-import { diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, pesado } from './app.js';
+import { diagnostico, S, GRADE, G, limiteCreditos, creditosDoSemestre, pesado } from './app.js';
 
 const MARGEM = 42;
 const CINZA = [110, 123, 138];
@@ -19,7 +19,7 @@ function cabecalho(doc, h) {
   const linhas = [
     h.curso || G.curso,
     [h.aluno, h.numero].filter(Boolean).join(' · '),
-    `Montado em ${hoje()} · gerado localmente pelo contínuo, não é documento oficial da USP`,
+    `Montado em ${hoje()} · gerado localmente pelo grade-bcc, não é documento oficial da USP`,
   ].filter(Boolean);
   linhas.forEach((t, i) => doc.text(t, MARGEM, 74 + i * 12));
   return 74 + linhas.length * 12 + 10;
@@ -148,7 +148,7 @@ function rodape(doc) {
     doc.setPage(p);
     doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(...CINZA);
     doc.text(
-      `contínuo · plano montado pelo próprio estudante · página ${p} de ${total}`,
+      `grade · plano montado pelo próprio estudante · página ${p} de ${total}`,
       MARGEM,
       doc.internal.pageSize.getHeight() - 24,
     );
@@ -190,7 +190,7 @@ export function gerarPdf() {
     const quais = puxados.map((s) => `${s.ano}/${s.sem}`).join(', ');
     doc.text(
       `Semestre${puxados.length === 1 ? '' : 's'} puxado${puxados.length === 1 ? '' : 's'}: ${quais} `
-      + `(acima de ${LIMITE_CREDITOS} créditos-aula).`,
+      + `(acima de ${limiteCreditos()} créditos-aula).`,
       MARGEM, y + 6,
     );
     y += 18;

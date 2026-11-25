@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>contínuo — planejador de curso BCC/ICMC</title>
+<title>grade — planejador de curso BCC/ICMC</title>
 <link rel="stylesheet" href="assets/fonts.css">
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/curriculum.js"></script>
@@ -14,22 +14,38 @@
 
 <header class="barra">
   <div class="marca">
-    <span class="marca-nome">contínuo</span>
+    <span class="marca-nome">grade</span>
     <span class="marca-sub" id="marca-curso">Bacharelado em Ciências de Computação · ICMC/USP</span>
   </div>
   <div class="barra-acoes">
-    <label class="alternar" hidden id="box-paridade">
-      <input type="checkbox" id="chk-paridade" checked>
-      <span>Só disciplinas do semestre certo</span>
-    </label>
-    <label class="alternar" hidden id="box-limite">
-      <input type="checkbox" id="chk-limite" checked>
-      <span>Limite de 20 créditos</span>
-    </label>
+    <button class="btn btn-fantasma" id="btn-config" aria-haspopup="dialog">Configurações</button>
     <button class="btn btn-fantasma" id="btn-recomecar" hidden>Começar de novo</button>
     <button class="btn btn-primario" id="btn-pdf" hidden>Baixar plano em PDF</button>
   </div>
 </header>
+
+<dialog class="config" id="config" aria-labelledby="config-titulo">
+  <form method="dialog">
+    <h2 id="config-titulo">Configurações</h2>
+    <label class="config-linha">
+      <span>Limite de créditos-aula por semestre<small>Acima dele o semestre fica puxado; a sugestão não passa dele.</small></span>
+      <input type="number" id="cfg-limite" min="1" max="99" value="20">
+    </label>
+    <label class="config-linha">
+      <span>Permitir passar do limite<small>Ao arrastar à mão. Desligado, o encaixe que passa é recusado.</small></span>
+      <input type="checkbox" id="cfg-passar" checked>
+    </label>
+    <label class="config-linha">
+      <span>Só disciplinas do semestre certo<small>Período ímpar no 1º semestre, par no 2º.</small></span>
+      <input type="checkbox" id="cfg-paridade" checked>
+    </label>
+    <label class="config-linha">
+      <span>Tempo de busca da otimização (ms)<small>Mais tempo acha soluções melhores com muitas ênfases, mas cada mudança no plano refaz a busca.</small></span>
+      <input type="number" id="cfg-tempo" min="50" max="60000" step="50" value="250">
+    </label>
+    <div class="config-fim"><button class="btn btn-primario">Fechar</button></div>
+  </form>
+</dialog>
 
 <!-- ENTRADA ---------------------------------------------------------------- -->
 <main class="entrada" id="tela-entrada">
