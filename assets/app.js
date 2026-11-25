@@ -1,4 +1,4 @@
-/* contínuo — planejador de curso BCC/ICMC.
+/* grade — planejador de curso BCC/ICMC.
    Roda inteiro no navegador: o histórico nunca sai da máquina e nada é salvo
    (sem localStorage, sem rede). Recarregar a página apaga tudo. */
 
@@ -52,7 +52,6 @@ const alternativasDe = (codigo) => EQUIV.filter((r) => r.para.length === 1 && r.
 
 const rotuloRegra = (r) => r.de.map((parte) => parte.join(' ou ')).join(' + ');
 
-const LIMITE_CREDITOS = 20; // acima disso o semestre é marcado como puxado
 const MINIMO_CREDITOS = 12; // abaixo disso o semestre não vale, exceto os dois últimos
 const SEMESTRES_LIVRES = 2; // os dois últimos do plano podem ficar abaixo do mínimo
 const NOTA_REQUISITO_FRACO = 3; // requisito fraco só libera com nota >= 3,0
@@ -93,10 +92,10 @@ function perfil(codigo, via = S.via.get(codigo)) {
 /** Requisito de outro curso que não dá para planejar aqui: só avisa, quem confere é o Júpiter. */
 const deFora = (pf, grupo) => pf.via && !grupo.some((r) => GRADE.has(r.c));
 
-/** Semestre puxado: passa do limite de créditos-aula. */
-/** Teto de créditos-aula por semestre; desligado, nenhum semestre é puxado. */
-const limiteCreditos = () => (S.limite ? LIMITE_CREDITOS : Infinity);
+/** Teto de créditos-aula por semestre (Configurações). */
+const limiteCreditos = () => S.limiteCreditos;
 
+/** Semestre puxado: passa do limite de créditos-aula. */
 export const pesado = (s) => creditosDoSemestre(s) > limiteCreditos();
 
 export const avisoPesado = (s) =>
@@ -129,7 +128,8 @@ const S = {
   filtroInst: null,
   soLiberadas: false,
   paridade: true,
-  limite: true,     // marca semestre acima de LIMITE_CREDITOS como puxado
+  limiteCreditos: 20, // acima disso o semestre é puxado e a sugestão não passa
+  passarLimite: true, // arrastar à mão pode passar do limite (fica marcado como puxado)
   aproveitarLivres: true,
   enfases: new Set(), // ids das ênfases escolhidas
   planoAntes: null, // cópia do plano antes de aplicar a sugestão (desfazer)
@@ -377,6 +377,10 @@ function avaliar(codigo, idx) {
   }
 
   const coluna = S.plano[idx];
+  if (coluna && !S.passarLimite && !coluna.itens.includes(codigo)
+    && creditosDoSemestre(coluna) + pf.ca > limiteCreditos()) {
+    bloqueios.push(`passa do limite de ${limiteCreditos()} créditos-aula do semestre`);
+  }
   if (coluna && pf.via && !pf.p) {
     // sem período ideal no Júpiter (optativa no curso dela): não dá para saber a oferta
     avisos.push('confira a oferta da equivalente no Júpiter');
@@ -694,7 +698,7 @@ let cacheSugestao = { chave: null, valor: null };
 
 /** Simula a otimização sem mexer no plano. */
 function sugestao(enfases) {
-  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, S.limite, S.tempoBusca, S.usarEquivalencias,
+  const chave = JSON.stringify([enfases.map((e) => e.id), S.plano, S.paridade, S.limiteCreditos, S.passarLimite, S.tempoBusca, S.usarEquivalencias,
     [...S.via].map(([c, r]) => c + rotuloRegra(r)), [...S.concluidas].length]);
   if (cacheSugestao.chave === chave) return cacheSugestao.valor;
 
@@ -1004,7 +1008,7 @@ function painelOtimizacao(enfases) {
       ? '<span class="placar-erro">Não dá para fechar essas ênfases com as disciplinas da grade.</span>'
       : sug.escolhidas.length
         ? `${sug.escolhidas.length} disciplina(s), <b>${somaCa(sug.escolhidas, new Map([...S.via, ...sug.vias]))} créditos-aula</b>, fecham
-          ${enfases.length === 1 ? 'a ênfase' : 'todas as ênfases'}: ${sug.completa ? 'o menor total possível' : `o menor que a busca achou em ${S.tempoBusca} ms (aumente o tempo para garantir o mínimo)`},
+          ${enfases.length === 1 ? 'a ênfase' : 'todas as ênfases'}: ${sug.completa ? 'o menor total possível' : `o menor que a busca achou em ${S.tempoBusca} ms (aumente o tempo de busca nas Configurações)`},
           contando o que você já cursou e o que já está no plano.`
         : `<b>Nada a acrescentar:</b> histórico e plano já fecham ${enfases.length === 1 ? 'a ênfase' : 'as ênfases'}.`}</p>
     ${sug.escolhidas.length ? `<ul class="enfase-itens">${sug.escolhidas.map((c) => linha(c,
@@ -1020,14 +1024,8 @@ function painelOtimizacao(enfases) {
           no máximo <b>${sug.maiorCarga} créd.-aula</b> por semestre, carga equilibrada entre eles.`
         : 'O plano já cobre o que dá para encaixar.'}
         ${sug.naoCoube.length ? `<span class="placar-erro">Não coube: ${sug.naoCoube.join(', ')}.</span>` : ''}</p>
-      <label class="enfase-opcao">Tempo de busca
-        <input type="number" class="tempo-busca" min="50" max="60000" step="50" value="${S.tempoBusca}"> ms</label>
       <div class="enfase-botoes"></div>
     </div>`;
-  bloco.querySelector('.tempo-busca').addEventListener('change', (ev) => {
-    S.tempoBusca = Math.min(60000, Math.max(50, Number(ev.target.value) || 250));
-    desenhar();
-  });
 
   const botoes = bloco.querySelector('.enfase-botoes');
   if (novas) {
@@ -1038,17 +1036,6 @@ function painelOtimizacao(enfases) {
     aplicar.addEventListener('click', () => aplicarSugestao(enfases));
     botoes.appendChild(aplicar);
   }
-  const equiv = document.createElement('button');
-  equiv.type = 'button';
-  equiv.className = `btn btn-pequeno ${S.usarEquivalencias ? 'btn-primario' : 'btn-fantasma'}`;
-  equiv.setAttribute('aria-pressed', String(S.usarEquivalencias));
-  equiv.textContent = `Equivalências: ${S.usarEquivalencias ? 'usando' : 'não usar'}`;
-  equiv.title = 'Deixa a otimização cursar disciplinas equivalentes de outros cursos';
-  equiv.addEventListener('click', () => {
-    S.usarEquivalencias = !S.usarEquivalencias;
-    desenhar();
-  });
-  botoes.appendChild(equiv);
   const limpar = document.createElement('button');
   limpar.type = 'button';
   limpar.className = 'btn btn-fantasma btn-pequeno';
@@ -1284,7 +1271,7 @@ function desenharPlacar() {
   if (d.sobrecarga.length) {
     const quais = d.sobrecarga.map((s) => `${s.ano}/${s.sem}`).join(', ');
     estado.innerHTML += ` <span class="placar-puxado">${quais} ${d.sobrecarga.length === 1 ? 'passa' : 'passam'}`
-      + ` de ${LIMITE_CREDITOS} créditos-aula: semestre${d.sobrecarga.length === 1 ? '' : 's'} mais puxado${d.sobrecarga.length === 1 ? '' : 's'}.</span>`;
+      + ` de ${limiteCreditos()} créditos-aula: semestre${d.sobrecarga.length === 1 ? '' : 's'} mais puxado${d.sobrecarga.length === 1 ? '' : 's'}.</span>`;
   }
 
   el('btn-pdf').hidden = !d.pronto;
@@ -1304,8 +1291,6 @@ async function receber(arquivo) {
     el('marca-curso').textContent = `${h.aluno || 'Plano de curso'} · ${h.curso || G.curso}`;
     el('tela-entrada').hidden = true;
     el('tela-app').hidden = false;
-    el('box-paridade').hidden = false;
-    el('box-limite').hidden = false;
     el('btn-recomecar').hidden = false;
     desenhar();
   } catch (e) {
@@ -1391,13 +1376,21 @@ function ligarControles() {
   limpar.addEventListener('click', limparEnfases);
   enfases.appendChild(limpar);
 
-  el('chk-paridade').addEventListener('change', (ev) => {
-    S.paridade = ev.target.checked;
-    desenhar();
+  el('btn-config').addEventListener('click', () => el('config').showModal());
+  const ajustar = (id, campo, ler) => el(id).addEventListener('change', (ev) => {
+    S[campo] = ler(ev.target);
+    if (S.hist) desenhar();
   });
-  el('chk-limite').addEventListener('change', (ev) => {
-    S.limite = ev.target.checked;
-    desenhar();
+  ajustar('cfg-limite', 'limiteCreditos', (i) => {
+    i.value = Math.min(99, Math.max(1, Math.round(Number(i.value)) || 20));
+    return Number(i.value);
+  });
+  ajustar('cfg-passar', 'passarLimite', (i) => i.checked);
+  ajustar('cfg-paridade', 'paridade', (i) => i.checked);
+  ajustar('cfg-equiv', 'usarEquivalencias', (i) => i.checked);
+  ajustar('cfg-tempo', 'tempoBusca', (i) => {
+    i.value = Math.min(60000, Math.max(50, Math.round(Number(i.value)) || 250));
+    return Number(i.value);
   });
   el('btn-recomecar').addEventListener('click', () => location.reload());
 }
@@ -1406,4 +1399,4 @@ ligarEntrada();
 ligarControles();
 
 /* assets/pdf.js consome este estado para gerar o plano em PDF. */
-export { perfil, calcularEquivalidas, diagnostico, S, GRADE, G, LIMITE_CREDITOS, creditosDoSemestre, rotuloRegra };
+export { perfil, calcularEquivalidas, diagnostico, S, GRADE, G, limiteCreditos, creditosDoSemestre, rotuloRegra };

@@ -1,4 +1,4 @@
-# contínuo
+# grade
 
 **Site: <https://plunkes.github.io/grade-bcc/>**
 
@@ -47,9 +47,9 @@ A combinação é otimizada:
 - **O que você já cursou e o que já pôs no plano conta de graça.** Para preferir uma
   disciplina, arraste-a para um semestre: a otimização passa a contar com ela.
 - A busca é exata (branch and bound) e para no **tempo de busca** (250 ms por padrão, ajustável
-  no painel até 60 s); se parar antes, o painel avisa que é a melhor solução encontrada. Tempo
+  em **Configurações**, até 60 s); se parar antes, o painel avisa que é a melhor solução encontrada. Tempo
   maior acha soluções melhores com muitas ênfases, mas cada mudança no plano refaz a busca.
-- O botão **Equivalências** (no painel) deixa a otimização cursar por
+- **Configurações → Otimização usa equivalências** deixa a otimização cursar por
   equivalência: cada disciplina vai pelo jeito mais barato (a da grade ou uma equivalente
   oferecida) e, ao encaixar, a equivalente entra quando cai num semestre mais leve, já que
   segue a paridade do outro curso. Vale também para as obrigatórias. "Aplicar" marca o
@@ -58,7 +58,7 @@ A combinação é otimizada:
 **Aplicar ao plano** encaixa as obrigatórias pendentes, as disciplinas escolhidas e, se ainda
 faltarem créditos eletivos, mais optativas. A distribuição usa o menor número de semestres em
 que tudo cabe e **equilibra a carga** entre eles (respeitando requisitos, paridade, estágio e o
-limite de 20 créditos-aula, se ligado), sem mexer no que você já tinha posto. **Desfazer** volta o plano. **Limpar** (ao lado dos chips ou no painel) tira todas as ênfases da otimização sem mexer no plano.
+limite de créditos das Configurações), sem mexer no que você já tinha posto. **Desfazer** volta o plano. **Limpar** (ao lado dos chips ou no painel) tira todas as ênfases da otimização sem mexer no plano.
 Disciplinas citadas na ênfase mas fora da grade aparecem marcadas e nunca são sugeridas.
 
 Ênfase completa ganha **✓** no chip (concluída pelo histórico) ou **◐** (completa contando o
@@ -69,21 +69,23 @@ Regras aplicadas ao arrastar:
 - **Requisito** não cumprido **bloqueia** o encaixe — nota não substitui conclusão.
 - **Requisito fraco** só libera com a disciplina cumprida (ou planejada antes) ou com **nota ≥ 3,0** nela; sem isso, bloqueia. **Indicação de conjunto** só avisa.
 - Disciplina de período ideal ímpar só entra em 1º semestre (e par em 2º). Desligue em
-  "Só disciplinas do semestre certo" para planejar fora da paridade.
+  **Configurações → Só disciplinas do semestre certo** para planejar fora da paridade.
 - Estágio e projetos (graduação, intercâmbio, empreendedor) exigem 100 créditos-aula aprovados antes,
   mas valem em qualquer semestre, sem a regra de paridade.
 - Estágio Supervisionado, Projeto de Graduação, Projeto em Intercâmbio e Projeto Empreendedor se
   equivalem, I e II inclusive: bastam **2 delas, em qualquer combinação** (ex.: Intercâmbio I + Estágio I).
   As 2 primeiras cursadas ou planejadas contam como obrigatórias; as demais, como eletivas.
 - **+** no fim do quadro planeja mais um semestre; **−** remove o último (as disciplinas dele voltam para a lista).
-- Semestre acima de 20 créditos-aula é marcado como **puxado**, na tela e no PDF. É só aviso: o encaixe continua valendo. Desligue "Limite de 20 créditos" para tirar o teto de vez.
+- Semestre acima do limite de créditos-aula (**20** por padrão, ajustável em **Configurações**) é marcado
+  como **puxado**, na tela e no PDF. É só aviso, a menos que você desligue **Permitir passar do limite**:
+  aí o encaixe que passa é recusado.
 - Semestre com menos de **12 créditos-aula** invalida o plano e segura o PDF. Só os **2 últimos** semestres do plano podem ficar abaixo disso.
 - AAC e extensão são lidos do histórico: entram no placar e, se faltarem, saem listados no PDF.
 
 ### Equivalências
 
 O ICMC aceita disciplinas de outros cursos no lugar das do BCC, pela **tabela de
-equivalências**. O contínuo usa a tabela de dois jeitos:
+equivalências**. O app usa a tabela de dois jeitos:
 
 - **Histórico.** Disciplina de outro curso já cursada (ou em andamento) que equivale a uma da
   grade cobre essa disciplina: ela sai de "A cursar" e aparece em **Cobertas por
