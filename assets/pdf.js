@@ -1,7 +1,7 @@
 /* Exportação do plano em PDF, feita no próprio navegador com jsPDF.
    Lista semestre a semestre e fecha com o que ainda fica pendente. */
 
-import { diagnostico, S, GRADE, G, limiteCreditos, creditosDoSemestre, pesado } from './app.js';
+import { diagnostico, S, GRADE, G, limiteCreditos, creditosDoSemestre, pesado } from './app.js?v=2';
 
 const MARGEM = 42;
 const CINZA = [110, 123, 138];
