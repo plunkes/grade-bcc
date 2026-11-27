@@ -79,6 +79,8 @@ Regras aplicadas ao arrastar:
   equivalem, I e II inclusive: bastam **2 delas, em qualquer combinação** (ex.: Intercâmbio I + Estágio I).
   As 2 primeiras cursadas ou planejadas contam como obrigatórias; as demais, como eletivas.
 - **+** no fim do quadro planeja mais um semestre; **−** remove o último (as disciplinas dele voltam para a lista).
+- Arraste um cartão do plano de volta para a lista para tirá-lo do plano. **Limpar plano** (no topo) esvazia
+  todos os semestres sem pedir o histórico de novo.
 - Semestre acima do limite de créditos-aula (**20** por padrão, ajustável em **Configurações**) é marcado
   como **puxado**, na tela e no PDF. É só aviso, a menos que você desligue **Permitir passar do limite**:
   aí o encaixe que passa é recusado.
