@@ -406,7 +406,6 @@ function liberada(codigo) {
 
 /* ------------------------------------------------------------- otimização */
 
-const SEMESTRES_EXTRAS = 8; // quantos semestres a sugestão pode criar além do plano
 
 const copiaPlano = (plano) => plano.map((s) => ({ ...s, itens: [...s.itens] }));
 
@@ -563,17 +562,13 @@ function eletivasParaFechar(escolhidas, enfases) {
 }
 
 /**
- * Distribui `siglas` em `n` semestres equilibrando a carga: em ordem de
+ * Distribui `siglas` nos semestres do plano equilibrando a carga: em ordem de
  * requisitos, cada disciplina vai para o semestre permitido (requisitos,
  * paridade, estágio, limite de créditos) de menor carga. Quem tem cadeia de
  * dependentes na fila não pode ir tão para o fim que a cadeia não caiba.
  * Muda S.plano; devolve o que não coube.
  */
-function distribuir(siglas, n) {
-  while (S.plano.length < n) {
-    const u = S.plano[S.plano.length - 1];
-    S.plano.push({ ...(u.sem === 1 ? { ano: u.ano, sem: 2 } : { ano: u.ano + 1, sem: 1 }), itens: [] });
-  }
+function distribuir(siglas) {
   const fila = new Set(siglas);
   const requisitosNaFila = (c) => perfil(c).r
     .filter((g) => g[0].k !== 'conjunto')
@@ -671,27 +666,14 @@ function equilibrar(movaveis) {
 }
 
 /**
- * Coloca obrigatórias pendentes, disciplinas das ênfases e eletivas extras no
- * plano, usando o menor número de semestres em que tudo cabe (o que já está
- * no plano fica onde está). Muda S.plano.
+ * Coloca obrigatórias pendentes, disciplinas das ênfases e eletivas extras só
+ * nos semestres que já estão no plano (o que já está nele fica onde está); o
+ * que não couber volta. Para ter mais espaço, crie semestres com o +. Muda S.plano.
  */
 function encaixarEquilibrado(siglas) {
-  const base = copiaPlano(S.plano);
-  const viaBase = new Map(S.via);
-  let melhor = null;
-  for (let n = base.length; n <= base.length + SEMESTRES_EXTRAS; n++) {
-    S.plano = copiaPlano(base);
-    S.via = new Map(viaBase);
-    const naoCoube = distribuir(siglas, n);
-    equilibrar(siglas);
-    // semestres criados que ficaram vazios saem
-    while (S.plano.length > base.length && !S.plano[S.plano.length - 1].itens.length) S.plano.pop();
-    if (!melhor || naoCoube.length < melhor.naoCoube.length) melhor = { plano: S.plano, via: S.via, naoCoube };
-    if (!naoCoube.length) break;
-  }
-  S.plano = melhor.plano;
-  S.via = melhor.via;
-  return melhor.naoCoube;
+  const naoCoube = distribuir(siglas);
+  equilibrar(siglas);
+  return naoCoube;
 }
 
 let cacheSugestao = { chave: null, valor: null };
@@ -899,7 +881,8 @@ function desenharRail() {
   const alvo = el('listas');
   alvo.innerHTML = '';
   const escolhidas = enfasesEscolhidas();
-  if (escolhidas.length) alvo.appendChild(painelOtimizacao(escolhidas));
+  const otimo = painelOtimizacao(escolhidas);
+  if (otimo) alvo.appendChild(otimo);
   escolhidas.forEach((e) => alvo.appendChild(painelEnfase(e)));
   if (S.equivalidas.size) alvo.appendChild(painelEquivalidas());
 
@@ -985,11 +968,12 @@ function painelEnfase(e) {
   return bloco;
 }
 
-/** Resultado da otimização para as ênfases escolhidas, com aplicar e desfazer. */
+/** Preenchimento automático (com as ênfases escolhidas, se houver), com aplicar e desfazer. */
 function painelOtimizacao(enfases) {
   const sug = sugestao(enfases);
   const marcas = siglasDaEnfase();
   const novas = sug.obrigatorias.length + sug.escolhidas.length + sug.extras.length - sug.naoCoube.length;
+  if (!enfases.length && !novas && !sug.naoCoube.length && !S.planoAntes) return null;
   const linha = (c, extra) => `
     <li class="enfase-item">
       <span class="enfase-sigla">${c}</span>
@@ -1001,16 +985,16 @@ function painelOtimizacao(enfases) {
   bloco.className = 'grupo enfase-painel otimo';
   bloco.innerHTML = `
     <header class="grupo-cab">
-      <h3 class="grupo-nome">Melhor caminho · ${enfases.length} ênfase${enfases.length === 1 ? '' : 's'}</h3>
-      <span class="grupo-conta">${somaCa(sug.escolhidas, new Map([...S.via, ...sug.vias]))} créd.</span>
+      <h3 class="grupo-nome">${enfases.length ? `Melhor caminho · ${enfases.length} ênfase${enfases.length === 1 ? '' : 's'}` : 'Preencher automaticamente'}</h3>
+      ${enfases.length ? `<span class="grupo-conta">${somaCa(sug.escolhidas, new Map([...S.via, ...sug.vias]))} créd.</span>` : ''}
     </header>
-    <p class="enfase-resumo">${!sug.possivel
+    ${enfases.length ? `<p class="enfase-resumo">${!sug.possivel
       ? '<span class="placar-erro">Não dá para fechar essas ênfases com as disciplinas da grade.</span>'
       : sug.escolhidas.length
         ? `${sug.escolhidas.length} disciplina(s), <b>${somaCa(sug.escolhidas, new Map([...S.via, ...sug.vias]))} créditos-aula</b>, fecham
           ${enfases.length === 1 ? 'a ênfase' : 'todas as ênfases'}: ${sug.completa ? 'o menor total possível' : `o menor que a busca achou em ${S.tempoBusca} ms (aumente o tempo de busca nas Configurações)`},
           contando o que você já cursou e o que já está no plano.`
-        : `<b>Nada a acrescentar:</b> histórico e plano já fecham ${enfases.length === 1 ? 'a ênfase' : 'as ênfases'}.`}</p>
+        : `<b>Nada a acrescentar:</b> histórico e plano já fecham ${enfases.length === 1 ? 'a ênfase' : 'as ênfases'}.`}</p>` : ''}
     ${sug.escolhidas.length ? `<ul class="enfase-itens">${sug.escolhidas.map((c) => linha(c,
       marcas.has(c) ? marcas.get(c).join(' · ') : 'requisito de outra escolhida')).join('')}</ul>` : ''}
     ${sug.extras.length ? `
@@ -1020,10 +1004,10 @@ function painelOtimizacao(enfases) {
       .map(([c, r]) => `<b>${c}</b> como ${rotuloRegra(r)}${sug.onde.has(c) ? ` (${sug.onde.get(c)})` : ''}`).join(', ')}.</p>` : ''}
     <div class="enfase-sugestao">
       <p class="enfase-resumo">${novas
-        ? `Com ${sug.obrigatorias.length} obrigatória(s) pendente(s): ${sug.semestres} semestres,
-          no máximo <b>${sug.maiorCarga} créd.-aula</b> por semestre, carga equilibrada entre eles.`
+        ? `Com ${sug.obrigatorias.length} obrigatória(s) pendente(s)${sug.extras.length ? ` e ${sug.extras.length} eletiva(s)` : ''},
+          nos ${sug.semestres} semestres do plano: no máximo <b>${sug.maiorCarga} créd.-aula</b> por semestre, carga equilibrada.`
         : 'O plano já cobre o que dá para encaixar.'}
-        ${sug.naoCoube.length ? `<span class="placar-erro">Não coube: ${sug.naoCoube.join(', ')}.</span>` : ''}</p>
+        ${sug.naoCoube.length ? `<span class="placar-erro">Não coube: ${sug.naoCoube.join(', ')}. Crie mais semestres com o + no quadro.</span>` : ''}</p>
       <div class="enfase-botoes"></div>
     </div>`;
 
@@ -1036,12 +1020,14 @@ function painelOtimizacao(enfases) {
     aplicar.addEventListener('click', () => aplicarSugestao(enfases));
     botoes.appendChild(aplicar);
   }
-  const limpar = document.createElement('button');
-  limpar.type = 'button';
-  limpar.className = 'btn btn-fantasma btn-pequeno';
-  limpar.textContent = 'Limpar ênfases';
-  limpar.addEventListener('click', limparEnfases);
-  botoes.appendChild(limpar);
+  if (enfases.length) {
+    const limpar = document.createElement('button');
+    limpar.type = 'button';
+    limpar.className = 'btn btn-fantasma btn-pequeno';
+    limpar.textContent = 'Limpar ênfases';
+    limpar.addEventListener('click', limparEnfases);
+    botoes.appendChild(limpar);
+  }
   if (S.planoAntes) {
     const desfazer = document.createElement('button');
     desfazer.type = 'button';

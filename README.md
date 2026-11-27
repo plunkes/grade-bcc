@@ -59,9 +59,11 @@ A combinação é otimizada:
   **cursar como** dessas disciplinas; "Desfazer" volta tudo.
 
 **Aplicar ao plano** encaixa as obrigatórias pendentes, as disciplinas escolhidas e, se ainda
-faltarem créditos eletivos, mais optativas. A distribuição usa o menor número de semestres em
-que tudo cabe e **equilibra a carga** entre eles (respeitando requisitos, paridade, estágio e o
-limite de créditos das Configurações), sem mexer no que você já tinha posto. **Desfazer** volta o plano. **Limpar** (ao lado dos chips ou no painel) tira todas as ênfases da otimização sem mexer no plano.
+faltarem créditos eletivos, mais optativas. A distribuição usa **só os semestres que já estão no
+quadro** (crie mais com o **+**; o que não couber aparece no painel) e **equilibra a carga** entre
+eles (respeitando requisitos, paridade, estágio e o limite de créditos das Configurações), sem
+mexer no que você já tinha posto. Sem nenhuma ênfase escolhida, o painel vira **Preencher
+automaticamente** e encaixa só as obrigatórias e as eletivas que faltam. **Desfazer** volta o plano. **Limpar** (ao lado dos chips ou no painel) tira todas as ênfases da otimização sem mexer no plano.
 Disciplinas citadas na ênfase mas fora da grade aparecem marcadas e nunca são sugeridas.
 
 Ênfase completa ganha **✓** no chip (concluída pelo histórico) ou **◐** (completa contando o
