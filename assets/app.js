@@ -2,7 +2,7 @@
    Roda inteiro no navegador: o histórico nunca sai da máquina e nada é salvo
    (sem localStorage, sem rede). Recarregar a página apaga tudo. */
 
-import { lerHistorico, CONCLUIDO, CURSANDO } from './historico.js?v=2';
+import { lerHistorico, CONCLUIDO, CURSANDO } from './historico.js?v=3';
 
 const G = window.CURRICULO;
 const GRADE = new Map(G.disciplinas.map((d) => [d.c, d]));
@@ -606,6 +606,7 @@ async function receber(arquivo) {
     el('tela-entrada').hidden = true;
     el('tela-app').hidden = false;
     el('btn-recomecar').hidden = false;
+    el('btn-limpar-plano').hidden = false;
     desenhar();
   } catch (e) {
     erro.textContent = e.message || 'Não foi possível ler o PDF.';
@@ -674,6 +675,32 @@ function ligarControles() {
   ajustar('cfg-passar', 'passarLimite', (i) => i.checked);
   ajustar('cfg-paridade', 'paridade', (i) => i.checked);
   el('btn-recomecar').addEventListener('click', () => location.reload());
+  el('btn-limpar-plano').addEventListener('click', () => {
+    if (!S.plano.some((s) => s.itens.length) || !confirm('Tirar todas as disciplinas do plano?')) return;
+    S.plano.forEach((s) => { s.itens = []; });
+    desenhar();
+  });
+
+  // soltar um cartão do plano na lista tira ele do plano
+  const rail = document.querySelector('.rail');
+  const doPlano = (ev) => {
+    const codigo = ev.dataTransfer.getData('text/plain') || document.querySelector('.card.arrastando')?.dataset.c;
+    return codigo && colunaDe(codigo) >= 0 ? codigo : null;
+  };
+  rail.addEventListener('dragover', (ev) => {
+    if (!doPlano(ev)) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    rail.classList.add('alvo');
+  });
+  rail.addEventListener('dragleave', (ev) => { if (!rail.contains(ev.relatedTarget)) rail.classList.remove('alvo'); });
+  rail.addEventListener('drop', (ev) => {
+    rail.classList.remove('alvo');
+    const codigo = doPlano(ev);
+    if (!codigo) return;
+    ev.preventDefault();
+    mover(codigo, 'rail');
+  });
 }
 
 ligarEntrada();
